@@ -201,7 +201,7 @@ table.sc tr.part td { background: var(--paper); font-weight: 700; }
     <span class="who" id="who"></span>
     <span class="chip" id="scoreChip">Score <b id="scoreTop">0</b></span>
     <span class="chip" id="syncChip" hidden></span>
-    <span class="chip" id="timeChip">⏱ <b id="timeTop">75:00</b></span>
+    <span class="chip" id="timeChip">⏱ <b id="timeTop">40:00</b></span>
   </div>
   <nav class="tabs" role="tablist">
     <button class="tab" role="tab" id="tab-test" aria-selected="true" type="button">Test</button>
@@ -272,7 +272,7 @@ table.sc tr.part td { background: var(--paper); font-weight: 700; }
     <div class="rules">
       <div><b class="pos">+1</b><span>for each correct answer</span></div>
       <div><b class="neg">−0.5</b><span>for each hint you open</span></div>
-      <div><b id="ruleMinutes">75</b><span>minutes</span></div>
+      <div><b id="ruleMinutes">40</b><span>minutes</span></div>
     </div>
     <ul>
       <li><b>Multiple choice and fill in the blanks:</b> one try each. Check before you submit.</li>
@@ -563,7 +563,7 @@ const WAIT_FOR_START = true;
 // ───────────────────────────────────────────────────────────────
 
 const KEYS = {"mcq":{"A1":"2cye4kfvk41","A2":"18vaqwx6e4k","A3":"17hgsigyz5q","A4":"1krnrjyi17s","A5":"24jtnvfzmo7","A6":"ool0356vfk","A7":"2gm15cerfqx","A8":"1bshncjz73g","A9":"p2b5w0rs8c","A10":"4iilggdf9z"},"blanks":{"B1":{"unordered":"44wxppdd6d"},"B2":{"each":[["1wvblxf3ogt","1vb6spg2vgy"],["t5tz5qwayq"]]},"B3":{"each":[["kc6jbd1gg0"],["1ylmqm44731"],["13tbdzx8s0u"],["2gdi1nxtcpx","4xztvnoivo"]]},"B4":{"each":[["tutzaio990"],["26sx8hlw1hi"]]},"B5":{"each":[["1b03zieysr9"],["fct50n7w35"]]},"B6":{"each":[["11kbfqo15s0"],["152mwpzc13l"]]}},"reset":"15gsiph97vw"};
-const MINUTES_LINK = (() => { const m = Number(new URLSearchParams(location.search).get("minutes")); return m > 0 && m <= 300 ? m : 75; })();
+const MINUTES_LINK = (() => { const m = Number(new URLSearchParams(location.search).get("minutes")); return m > 0 && m <= 300 ? m : 40; })();
 const minutes = () => S.minutes || MINUTES_LINK;
 
 /* ─────────── The questions ─────────── */
