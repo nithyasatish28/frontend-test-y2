@@ -552,10 +552,14 @@ function cartBadge({ items }) {
 "use strict";
 
 // ───────────────────────────────────────────────────────────────
-// CLASS SHEET (optional). Paste your Google Apps Script web app URL
-// between the quotes to see every student on admin.html.
+// GOOGLE SHEET (optional). Paste your Apps Script web app URL between
+// the quotes, and every student's answers are saved to your Sheet.
 // Leave it as it is to keep results on each laptop only.
-const RESULTS_URL = "PASTE_YOUR_WEB_APP_URL_HERE";
+const RESULTS_URL = "https://script.google.com/a/macros/atriauniversity.edu.in/s/AKfycbxMZLL-cKHs3mqLd-GRCn7cuzuabKQv1-2AwkvKMG1_Z_CazEbzdp4oADDhVBqi7QmS-A/exec";
+
+// Waiting room: true = students wait until you press Start on admin.html.
+// false = each student starts the test themselves.
+const WAIT_FOR_START = false;
 // ───────────────────────────────────────────────────────────────
 
 const KEYS = {"mcq":{"A1":"2cye4kfvk41","A2":"18vaqwx6e4k","A3":"17hgsigyz5q","A4":"1krnrjyi17s","A5":"24jtnvfzmo7","A6":"ool0356vfk","A7":"2gm15cerfqx","A8":"1bshncjz73g","A9":"p2b5w0rs8c","A10":"4iilggdf9z"},"blanks":{"B1":{"unordered":"44wxppdd6d"},"B2":{"each":[["1wvblxf3ogt","1vb6spg2vgy"],["t5tz5qwayq"]]},"B3":{"each":[["kc6jbd1gg0"],["1ylmqm44731"],["13tbdzx8s0u"],["2gdi1nxtcpx","4xztvnoivo"]]},"B4":{"each":[["tutzaio990"],["26sx8hlw1hi"]]},"B5":{"each":[["1b03zieysr9"],["fct50n7w35"]]},"B6":{"each":[["11kbfqo15s0"],["152mwpzc13l"]]}},"reset":"15gsiph97vw"};
@@ -698,7 +702,7 @@ function blanksRight(id, values) {
 
 /* ─────────── Saved state ─────────── */
 const KEY = "js-react-test-v1";
-const fresh = () => ({ id: "", name: "", session: "", joined: false, minutes: 0, start: 0, finished: 0, cur: "A1", q: {} });
+const fresh = () => ({ id: "", name: "", session: "", joined: false, minutes: 0, start: 0, finished: 0, cur: "A1", q: {}, events: [] });
 let S = fresh();
 try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.q) S = Object.assign(fresh(), s); } catch {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
@@ -721,19 +725,41 @@ function qStatus(q) {
   const base = s.status === "correct" ? "c" : s.status === "wrong" ? "w" : (q.type === "code" && s.code != null && s.code !== starter(q.id)) ? "p" : "";
   return base + (s.hint ? "h" : "");
 }
+// What each student actually answered: the option they picked, the blanks they typed, the code they checked.
+function answerSnapshot() {
+  const out = {};
+  for (const q of Q) {
+    const s = st(q.id);
+    let a = "", r = s.status === "correct" ? "c" : s.status === "wrong" ? "w" : "";
+    if (q.type === "mcq" && s.status) a = "ABCD"[s.pick] + " · " + q.options[s.pick].replace(/`/g, "");
+    if (q.type === "blanks" && s.status) a = s.vals.join("  |  ");
+    if (q.type === "code" && s.checked != null) { a = s.checked; if (!r) r = "w"; }
+    out[q.id] = { a, r, h: !!s.hint, n: s.checks || "" };
+  }
+  return out;
+}
+// One line per action, sent to the "Answers log" tab. Kept until the sheet confirms it.
+function logEvent(qid, kind, answer, result) {
+  if (!SYNC_ON) return;
+  S.events = S.events || [];
+  S.events.push({ eid: newId(), t: new Date().toISOString(), qid: qid || "", kind, answer: String(answer ?? "").slice(0, 20000), result: result || "", score: points() });
+  if (S.events.length > 300) S.events.splice(0, S.events.length - 300);
+  save(); sync();
+}
 function payload() {
   const q = {};
   for (const x of Q) q[x.id] = qStatus(x);
   return {
     id: S.id, name: S.name, session: S.session, status: S.finished ? "submitted" : S.start ? "working" : "waiting", score: points(), correct: Q.filter(x => st(x.id).status === "correct").length,
     hints: Q.filter(x => st(x.id).hint).length, done: Q.filter(answered).length, total: MAX,
-    submitted: !!S.finished, minutesLeft: Math.ceil(timeLeft() / 60000), q,
+    submitted: !!S.finished, started: S.start ? new Date(S.start).toISOString() : "", minutesLeft: Math.ceil(timeLeft() / 60000), q,
+    answers: answerSnapshot(), events: (S.events || []).slice(0, 40),
   };
 }
 function sync(force) {
   if (!SYNC_ON || !S.joined) return;
   const key = JSON.stringify(Object.assign(payload(), { minutesLeft: 0 }));
-  const due = Date.now() - lastSentAt > 90000;              // a heartbeat every 90 s, so "last seen" stays fresh
+  const due = Date.now() - lastSentAt > 120000 || ((S.events || []).length > 0 && Date.now() - lastSentAt > 15000);              // a heartbeat every 90 s, so "last seen" stays fresh
   if (!force && key === lastSentKey && !due) return;
   if (sendTimer && !force) return;
   clearTimeout(sendTimer);
@@ -744,9 +770,22 @@ async function send() {
   if (sending) { sendTimer = setTimeout(send, 1500); return; }
   sending = true;
   const p = payload(), key = JSON.stringify(Object.assign({}, p, { minutesLeft: 0 }));
+  const sentIds = new Set(p.events.map(e => e.eid));
+  const opts = { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(p) };
   try {
-    await fetch(RESULTS_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(p) });
-    lastSentKey = key; lastSentAt = Date.now(); showSync(true);
+    let confirmed = false;
+    try {
+      const res = await fetch(RESULTS_URL, opts);
+      const d = await res.json();
+      confirmed = !!d.ok;
+    } catch (e) {
+      if (!navigator.onLine) throw e;
+      await fetch(RESULTS_URL, Object.assign({ mode: "no-cors" }, opts));   // the sheet got it, but the browser can't read the reply
+      confirmed = true;
+    }
+    if (!confirmed) throw new Error("not saved");
+    S.events = (S.events || []).filter(e => !sentIds.has(e.eid)); save();   // the sheet skips any line it has already seen
+    lastSentKey = JSON.stringify(Object.assign(payload(), { minutesLeft: 0 })); lastSentAt = Date.now(); showSync(true);
   } catch {
     showSync(false); lastSentAt = Date.now() - 70000;          // try again in about 20 s
   }
@@ -755,7 +794,7 @@ async function send() {
 function showSync(ok) {
   const c = el("syncChip"); if (!c) return;
   c.hidden = false;
-  c.textContent = ok ? "● Saved to class sheet" : "● Offline, retrying";
+  c.textContent = ok ? "● Answers saved" : "● Offline, will retry";
   c.style.color = ok ? "var(--good)" : "var(--hint)";
   c.style.borderColor = ok ? "var(--good)" : "var(--hint)";
 }
@@ -852,7 +891,7 @@ function renderHint(q) {
   const b = el("hintBtn"); let armed = false;
   b.addEventListener("click", () => {
     if (!armed) { armed = true; b.classList.add("armed"); b.textContent = "Sure? Click again: you lose 0.5"; setTimeout(() => { if (armed && b.isConnected) { armed = false; b.classList.remove("armed"); b.textContent = "Show the hint (−0.5)"; } }, 4000); return; }
-    s.hint = true; save(); renderList(); renderHint(q);
+    s.hint = true; save(); logEvent(q.id, "hint", "", "−0.5"); renderList(); renderHint(q);
   });
 }
 
@@ -875,6 +914,7 @@ function renderMcq(q) {
   el("submitMcq")?.addEventListener("click", () => {
     if (s.pick == null || s.status || locked()) return;
     s.status = mcqRight(q.id, s.pick) ? "correct" : "wrong"; save();
+    logEvent(q.id, "answer", "ABCD"[s.pick] + " · " + q.options[s.pick].replace(/`/g, ""), s.status === "correct" ? "✓ correct" : "✗ wrong");
     renderList(); renderQ();
   });
 }
@@ -905,6 +945,7 @@ function renderBlanks(q) {
     if (s.vals.some(v => !v.trim())) { const n = document.createElement("p"); n.className = "note"; n.style.color = "var(--bad)"; n.textContent = "Fill in every blank first."; el("submitBlanks").parentElement.append(n); setTimeout(() => n.remove(), 2500); return; }
     s.marks = blanksRight(q.id, s.vals);
     s.status = s.marks.every(Boolean) ? "correct" : "wrong"; save();
+    logEvent(q.id, "answer", s.vals.join("  |  "), (s.status === "correct" ? "✓ correct" : "✗ wrong") + ` (${s.marks.filter(Boolean).length}/${s.marks.length} blanks)`);
     renderList(); renderQ();
   });
 }
@@ -1195,7 +1236,9 @@ async function checkCode(q) {
     if (!pass && why) { const w = document.createElement("span"); w.className = "why"; w.textContent = why; li.lastElementChild.append(w); }
   }
   const all = res.every(Boolean);
-  if (all && s.status !== "correct" && !locked()) { s.status = "correct"; save(); renderList(); }
+  const firstPass = all && s.status !== "correct" && !locked();
+  if (firstPass) { s.status = "correct"; renderList(); }
+  if (!locked()) { s.checked = currentCode; s.checks = `${res.filter(Boolean).length}/${res.length}`; save(); logEvent(q.id, "check", currentCode, (all ? "✓ " : "✗ ") + s.checks + " checks" + (firstPass ? " · +1" : "")); }
   const c = el("console");
   if (c) { c.innerHTML = ""; logTo(all ? "log" : "info", all ? (locked() ? "All checks pass." : "All checks pass! +1") : `${res.filter(Boolean).length} of ${res.length} checks pass. Read the red lines in Checks.`); }
   if (all) { const head = el("qcard").querySelector(".qhead"); if (head && !head.querySelector(".status-correct")) head.insertAdjacentHTML("beforeend", `<span class="pill status-correct">Correct · +1</span>`); }
@@ -1259,6 +1302,7 @@ el("timeChip").addEventListener("click", () => showView("timer"));
 function finish(auto) {
   if (S.finished) return;
   S.finished = Math.min(Date.now(), S.start + minutes() * 60000); save();
+  logEvent("", "finish", auto ? "time ran out or the test was ended" : "pressed Finish", `score ${fmtPts(points())} / ${MAX}`);
   sync(true);
   tick(); showView(auto ? "scores" : "scores");
 }
@@ -1288,15 +1332,16 @@ function begin() {
   if (n.length < 2) { el("startErr").textContent = "Type your full name first."; return; }
   S.name = n;
   if (!S.id) S.id = newId();
-  if (SYNC_ON) {               // join the waiting room; the instructor starts the test
+  if (SYNC_ON && WAIT_FOR_START) {   // join the waiting room; the instructor starts the test
     S.joined = true; save();
     showWaiting();
     pollStatus(true);
     return;
   }
-  S.start = Date.now(); save();   // no class sheet: start straight away
+  S.start = Date.now(); S.joined = SYNC_ON; save();   // start straight away
   el("start").hidden = true;
   boot();
+  logEvent("", "start", "", "");
 }
 el("startBtn").addEventListener("click", begin);
 el("nameIn").addEventListener("keydown", e => { if (e.key === "Enter") begin(); });
@@ -1353,10 +1398,10 @@ function boot() {
   tick();
 }
 setInterval(tick, 1000);
-el("startBtn").textContent = SYNC_ON ? "Join the test" : "Start the test";
-if (!S.start && S.joined && SYNC_ON) { showWaiting(); renderList(); renderQ(); pollStatus(true); }
+el("startBtn").textContent = SYNC_ON && WAIT_FOR_START ? "Join the test" : "Start the test";
+if (!S.start && S.joined && SYNC_ON && WAIT_FOR_START) { showWaiting(); renderList(); renderQ(); pollStatus(true); }
 else if (!S.start) { el("start").hidden = false; el("nameIn").value = S.name; el("nameIn").focus(); renderList(); renderQ(); }
-else { boot(); if (SYNC_ON) pollStatus(true); }
+else { boot(); if (SYNC_ON && WAIT_FOR_START) pollStatus(true); else sync(true); }
 if (!window.React || !window.Babel) {
   const b = el("banner"); b.hidden = false; b.textContent = "Some parts of the test didn’t load. Check your internet connection and refresh the page.";
 }
