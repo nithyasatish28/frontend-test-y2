@@ -80,7 +80,8 @@ code { font-family: var(--f-code); font-size: .88em; background: #eef2f0; paddin
 .pill.status-wrong { background: var(--bad-soft); color: var(--bad); }
 .qcard h2 { font-family: var(--f-head); font-weight: 800; font-size: 1.65rem; line-height: 1.15; margin: 10px 0 12px; letter-spacing: -.01em; text-wrap: balance; }
 .prompt p { margin: 0 0 10px; max-width: 75ch; }
-.prompt ul { margin: 0 0 10px; padding-left: 22px; }
+.prompt ul, .prompt ol { margin: 0 0 10px; padding-left: 22px; }
+.prompt .tip { background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 14px; }
 pre.show { margin: 8px 0 14px; background: var(--code-bg); color: #e6ece9; border-radius: 10px; padding: 14px 16px; font: 14px/1.6 var(--f-code); overflow-x: auto; white-space: pre; }
 .t-s { color: #f2c879; } .t-k { color: #8fc7f0; font-weight: 600; } .t-n { color: #f29eb3; } .t-c { color: #6f7f79; font-style: italic; } .t-f { color: #a7e2bc; } .t-tag { color: #7fd1c7; }
 
@@ -135,6 +136,7 @@ pre.blanks .num { font-size: 11px; color: #8aa59b; vertical-align: super; margin
 .pane h4 { margin: 0; padding: 8px 12px; font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); background: #fafbfa; }
 .console { font: 13px/1.55 var(--f-code); padding: 10px 12px; height: 180px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--code-bg); color: #e6ece9; }
 .console .err { color: #ff9b91; } .console .info { color: #71847d; font-style: italic; }
+.console .cmd { color: #9fe0c4; font-weight: 600; margin-top: 4px; }
 .preview { padding: 14px; min-height: 180px; max-height: 340px; overflow: auto; }
 .preview img { max-width: 120px; }
 .checks { list-style: none; margin: 0; padding: 10px 12px; display: grid; gap: 6px; }
@@ -201,7 +203,7 @@ table.sc tr.part td { background: var(--paper); font-weight: 700; }
     <span class="who" id="who"></span>
     <span class="chip" id="scoreChip">Score <b id="scoreTop">0</b></span>
     <span class="chip" id="syncChip" hidden></span>
-    <span class="chip" id="timeChip">⏱ <b id="timeTop">40:00</b></span>
+    <span class="chip" id="timeChip">⏱ <b id="timeTop">45:00</b></span>
   </div>
   <nav class="tabs" role="tablist">
     <button class="tab" role="tab" id="tab-test" aria-selected="true" type="button">Test</button>
@@ -245,7 +247,7 @@ table.sc tr.part td { background: var(--paper); font-weight: 700; }
         <svg class="ring" viewBox="0 0 260 260" aria-hidden="true">
           <circle cx="130" cy="130" r="112" fill="none" stroke="#e3e9e6" stroke-width="18"/>
           <circle id="ringArc" cx="130" cy="130" r="112" fill="none" stroke="#0f7a5c" stroke-width="18" stroke-linecap="round" transform="rotate(-90 130 130)" stroke-dasharray="703.7" stroke-dashoffset="0"/>
-          <text id="ringText" x="130" y="140" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="38" font-weight="700" fill="#17201d">75:00</text>
+          <text id="ringText" x="130" y="140" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="38" font-weight="700" fill="#17201d">45:00</text>
           <text x="130" y="172" text-anchor="middle" font-family="Instrument Sans, sans-serif" font-size="14" fill="#5d6965">left</text>
         </svg>
         <div class="facts">
@@ -259,7 +261,7 @@ table.sc tr.part td { background: var(--paper); font-weight: 700; }
         <div class="qhead"><span class="pill">Pace</span></div>
         <h2 style="margin-top:10px">How the test is going</h2>
         <div class="tablewrap"><table class="sc" id="paceTable"></table></div>
-        <p class="note" style="margin-top:12px">A rough plan: Part A in 10 minutes, B in 15, C in 25, D in 25.</p>
+        <p class="note" style="margin-top:12px">A rough plan: Part A in 8 minutes, B in 10, C in 12, D in 15.</p>
       </div>
     </div>
   </section>
@@ -272,7 +274,7 @@ table.sc tr.part td { background: var(--paper); font-weight: 700; }
     <div class="rules">
       <div><b class="pos">+1</b><span>for each correct answer</span></div>
       <div><b class="neg">−0.5</b><span>for each hint you open</span></div>
-      <div><b id="ruleMinutes">40</b><span>minutes</span></div>
+      <div><b id="ruleMinutes">45</b><span>minutes</span></div>
     </div>
     <ul>
       <li><b>Multiple choice and fill in the blanks:</b> one try each. Check before you submit.</li>
@@ -331,20 +333,9 @@ function App() {
 }
 </script>
 <script type="text/plain" id="starter-C3">
-import { useState } from "react";
+# You are in: Desktop
+# Write one command per line.
 
-function Counter() {
-  // your state here
-
-  return (
-    <div>
-      <p>0</p>
-      <button>−</button>
-      <button>+</button>
-      <button>Reset</button>
-    </div>
-  );
-}
 </script>
 <script type="text/plain" id="starter-C4">
 import { useState, useEffect } from "react";
@@ -437,34 +428,17 @@ for (const item of menu) {
 }
 </script>
 <script type="text/plain" id="starter-D4">
-import { useState } from "react";
+// The menu should show one <li> per dish.
+// The list is empty, and there is no error. Only ONE line is wrong. Fix it.
 
-// Clicking Add should put the dish in the cart and update the count.
-// Nothing changes on the page. Only ONE function is wrong. Fix it.
+const dishes = ["Masala dosa", "Idli", "Vada", "Lemon rice"];
 
-const dishes = ["Masala dosa", "Idli", "Vada"];
-
-function Cart() {
-  const [cart, setCart] = useState([]);
-
-  function addToCart(dish) {
-    cart.push(dish);
-    setCart(cart);
-  }
-
+function Menu() {
   return (
     <div>
-      <h2>Menu</h2>
-      {dishes.map((dish) => (
-        <button key={dish} onClick={() => addToCart(dish)}>
-          Add {dish}
-        </button>
-      ))}
-      <h2>Cart: {cart.length} items</h2>
+      <h2>Menu ({dishes.length} dishes)</h2>
       <ul>
-        {cart.map((dish, i) => (
-          <li key={i}>{dish}</li>
-        ))}
+        {dishes.map((dish) => { <li key={dish}>{dish}</li> })}
       </ul>
     </div>
   );
@@ -526,25 +500,29 @@ function App() {
 }
 </script>
 <script type="text/plain" id="starter-D7">
-import { useState } from "react";
+// BOSS BUG HUNT: this one has 3 bugs, not 1.
+// summary(order) should give back: "Kavya ordered 3 items. Total: ₹110"
+// Fix them all.
 
-// BOSS BUG HUNT: this one has 5 bugs, not 1.
-// It should show "2 items, 0 extra", then "2 items, 1 extra" after one click.
-// Fix them all. Keep the name CartBadge (with capitals).
-function cartBadge({ items }) {
-  const [extra, setExtra] = useState[0];
+const order = {
+  customer: "Kavya",
+  items: [
+    { dish: "Masala dosa", price: 60 },
+    { dish: "Filter coffee", price: 20 },
+    { dish: "Vada", price: 30 },
+  ],
+};
 
-  function addOne() {
-    extra = extra + 1;
+function summary(order) {
+  const { customer, item } = order;
+  let total = 0;
+  for (const { price } of items) {
+    total = price;
   }
-
-  return (
-    <div class="badge">
-      <p>{items.length} items, {extra} extra</p>
-      <button onClick={addOne()}>Add</button>
-    </div>
-  );
+  return `${customer} ordered ${items.lenght} items. Total: ₹${total}`;
 }
+
+console.log(summary(order));   // Kavya ordered 3 items. Total: ₹110
 </script>
 
 <script>
@@ -562,8 +540,8 @@ const RESULTS_URL = "https://script.google.com/macros/s/AKfycbwqilzIa03QnpWyphsh
 const WAIT_FOR_START = true;
 // ───────────────────────────────────────────────────────────────
 
-const KEYS = {"mcq":{"A1":"2cye4kfvk41","A2":"18vaqwx6e4k","A3":"17hgsigyz5q","A4":"1krnrjyi17s","A5":"24jtnvfzmo7","A6":"ool0356vfk","A7":"2gm15cerfqx","A8":"1bshncjz73g","A9":"p2b5w0rs8c","A10":"4iilggdf9z"},"blanks":{"B1":{"unordered":"44wxppdd6d"},"B2":{"each":[["1wvblxf3ogt","1vb6spg2vgy"],["t5tz5qwayq"]]},"B3":{"each":[["kc6jbd1gg0"],["1ylmqm44731"],["13tbdzx8s0u"],["2gdi1nxtcpx","4xztvnoivo"]]},"B4":{"each":[["tutzaio990"],["26sx8hlw1hi"]]},"B5":{"each":[["1b03zieysr9"],["fct50n7w35"]]},"B6":{"each":[["11kbfqo15s0"],["152mwpzc13l"]]}},"reset":"15gsiph97vw"};
-const MINUTES_LINK = (() => { const m = Number(new URLSearchParams(location.search).get("minutes")); return m > 0 && m <= 300 ? m : 40; })();
+const KEYS = {"mcq":{"A1":"2cye4kfvk41","A2":"18vaqwx6e4k","A3":"17hgsigyz5q","A4":"1krnrjyi17s","A5":"24jtnvfzmo7","A6":"ool0356vfk","A7":"denprbb5dd","A8":"23iwzel0uge","A9":"p2b5w0rs8c","A10":"22ehx0lo41n"},"blanks":{"B1":{"unordered":"44wxppdd6d"},"B2":{"each":[["1wvblxf3ogt","1vb6spg2vgy"],["t5tz5qwayq"]]},"B3":{"each":[["kc6jbd1gg0"],["1ylmqm44731"],["13tbdzx8s0u"],["2gdi1nxtcpx","4xztvnoivo"]]},"B4":{"each":[["tutzaio990"],["26sx8hlw1hi"]]},"B5":{"each":[["1b03zieysr9"],["xl6hiuf1at"]]},"B6":{"each":[["11kbfqo15s0"],["152mwpzc13l"]]}},"reset":"15gsiph97vw"};
+const MINUTES_LINK = (() => { const m = Number(new URLSearchParams(location.search).get("minutes")); return m > 0 && m <= 300 ? m : 45; })();
 const minutes = () => S.minutes || MINUTES_LINK;
 
 /* ─────────── The questions ─────────── */
@@ -595,25 +573,24 @@ const Q = [
     prompt: `<p>A button runs <code>count = count + 1;</code> instead of <code>setCount(count + 1);</code>. What happens on the page?</p>`,
     options: ["The number goes up by 1", "Nothing changes on the page (and with const, the console shows an error)", "The number goes up by 2", "The page reloads"],
     hint: "React only draws the component again when you call the setter." },
-  { id: "A7", part: "A", type: "mcq", title: "When an effect runs",
-    prompt: `<p>When does this effect run?</p>`,
-    code: `useEffect(() => {\n  fetch("https://dummyjson.com/products");\n}, []);`,
-    options: ["Every time anything on the page is clicked", "Never, because the array is empty", "Before the component appears", "Once, after the component first appears on the page"],
-    hint: "The array lists what to watch for changes. Empty means: nothing to watch." },
-  { id: "A8", part: "A", type: "mcq", title: "fetch doesn’t wait",
-    prompt: `<p>In what order do the letters appear in the console?</p>`,
-    code: `console.log("A");\nfetch("https://dummyjson.com/products").then(() => console.log("B"));\nconsole.log("C");`,
-    options: ["A, B, C", "A, C, B", "B, A, C", "C, B, A"],
-    hint: "The .then part runs later, when the reply arrives from the internet. The next line doesn’t wait for it." },
+  { id: "A7", part: "A", type: "mcq", title: "Loading data when the page opens",
+    prompt: `<p>You want to load products from the API once, when a component first appears on the page. Which hook do you put the <code>fetch</code> in?</p>`,
+    options: ["`useState`", "`useEffect`", "`useFetch`", "`useData`"],
+    hint: "useState only stores a value. The hook you need runs code after the component appears on the page." },
+  { id: "A8", part: "A", type: "mcq", title: "What fetch does",
+    prompt: `<p>What does this line do?</p>`,
+    code: `fetch("https://dummyjson.com/products");`,
+    options: ["Turns a JavaScript object into text", "Draws a list of products on the page", "Saves the products inside the browser", "Asks a server for data over the internet"],
+    hint: "Look at the link inside the brackets. Where do those products live?" },
   { id: "A9", part: "A", type: "mcq", title: "What .json() does",
     prompt: `<p>What does <code>response.json()</code> do after a <code>fetch</code>?</p>`,
-    options: ["Sends JSON to the server", "Saves the data to a file", "Turns the reply’s text into a JavaScript object (and gives back a promise)", "Checks the internet connection"],
+    options: ["Sends the data to the server as JSON", "Saves the reply to a file on the laptop", "Turns the reply into a JavaScript object", "Checks that the internet is working"],
     hint: "The reply arrives as text. Something has to read it into an object you can use." },
-  { id: "A10", part: "A", type: "mcq", title: "Why lists need a key",
-    prompt: `<p>Why does this line need <code>key={p.id}</code>?</p>`,
-    code: `{products.map((p) => <li key={p.id}>{p.title}</li>)}`,
-    options: ["It sorts the list by id", "It shows the id on the page", "It is only needed for lists of numbers", "It lets React tell the items apart when the list changes"],
-    hint: "Think about a list where items get added or removed in the middle." },
+  { id: "A10", part: "A", type: "mcq", title: "A value inside an object",
+    prompt: `<p>Which line puts <code>4.5</code> in a variable called <code>stars</code>?</p>`,
+    code: `const dish = {\n  name: "Masala dosa",\n  price: 60,\n  rating: { stars: 4.5, votes: 120 },\n};`,
+    options: ["`const { stars } = dish.rating;`", "`const { stars } = dish;`", "`const { rating } = dish.stars;`", "`const stars = dish.stars;`"],
+    hint: "stars is not directly inside dish. It is inside dish.rating." },
 
   // Part B · fill in the blanks
   { id: "B1", part: "B", type: "blanks", title: "Destructuring",
@@ -625,7 +602,7 @@ const Q = [
     code: `function ProductItem(__3__) {\n  return <li>{title}: ₹{__4__}</li>;\n}`,
     hint: "Unpack the props in the round brackets, the same way as B1: with curly brackets." },
   { id: "B3", part: "B", type: "blanks", title: "useState",
-    prompt: `<p>A like button that starts at 0 and goes up by 1 on every click.</p>`,
+    prompt: `<p>A like button that starts at 0 and goes up by 1 on every click.</p><p class="tip"><b>Tip:</b> <code>useState</code> gives back two things: the value, and a function that changes it. By habit, the function’s name is <code>set</code> + the value’s name, like <code>count</code> and <code>setCount</code>.</p>`,
     code: `import { __5__ } from "react";\n\nfunction LikeButton() {\n  const [likes, __6__] = useState(__7__);\n  return <button onClick={() => setLikes(__8__)}>❤️ {likes}</button>;\n}`,
     hint: "Look at the names the code already uses further down: setLikes and likes." },
   { id: "B4", part: "B", type: "blanks", title: "fetch",
@@ -633,9 +610,9 @@ const Q = [
     code: `fetch("https://dummyjson.com/products")\n  .then((response) => response.__9__())\n  .then((data) => console.log(data.__10__));`,
     hint: "Blank 9 reads the reply into an object. Blank 10 is a property name from the shape above." },
   { id: "B5", part: "B", type: "blanks", title: "useEffect",
-    prompt: `<p>Load one quote when the component first appears, and never again.</p>`,
-    code: `import { useState, __11__ } from "react";\n\nfunction Quote() {\n  const [quote, setQuote] = useState("Loading…");\n\n  useEffect(() => {\n    fetch("https://dummyjson.com/quotes/1")\n      .then((res) => res.json())\n      .then((data) => setQuote(data.quote));\n  }, __12__);\n\n  return <p>{quote}</p>;\n}`,
-    hint: "The second argument of useEffect is an array of things to watch. Here, there is nothing to watch." },
+    prompt: `<p>Load one quote when the component first appears, and show it on the page.</p>`,
+    code: `import { useState, __11__ } from "react";\n\nfunction Quote() {\n  const [quote, setQuote] = useState("Loading…");\n\n  useEffect(() => {\n    fetch("https://dummyjson.com/quotes/1")\n      .then((res) => res.json())\n      .then((data) => setQuote(data.quote));\n  }, []);\n\n  return <p>{__12__}</p>;\n}`,
+    hint: "Blank 11 is the hook used further down. Blank 12 is the state variable that holds the quote." },
   { id: "B6", part: "B", type: "blanks", title: "Lists",
     prompt: `<p>Show one <code>ProductItem</code> per product, with no warning in the console.</p>`,
     code: `<ul>\n  {products.__13__((p) => (\n    <ProductItem __14__={p.id} title={p.title} price={p.price} />\n  ))}\n</ul>`,
@@ -648,9 +625,9 @@ const Q = [
   { id: "C2", part: "C", type: "code", title: "A profile card", react: true, exports: ["ProfileCard", "App"], preview: "App",
     prompt: `<p>Write a <code>ProfileCard</code> component that shows a <b>photo</b>, a <b>name</b> and a <b>role</b>. It gets them as props and reads them with <b>destructuring</b>. Then use it <b>twice</b> in <code>App</code>, with two different people.</p><p>For photos you can use links like <code>https://i.pravatar.cc/100?img=5</code>.</p>`,
     hint: "function ProfileCard({ name, role, photo }) and, inside, <img src={photo} alt={name} />." },
-  { id: "C3", part: "C", type: "code", title: "A safe counter", react: true, exports: ["Counter"], preview: "Counter",
-    prompt: `<p>Write a <code>Counter</code> with three buttons: <b>−</b>, <b>+</b> and <b>Reset</b>. It starts at 0 and must <b>never go below 0</b>: pressing − at 0 leaves it at 0. Show the number in the <code>&lt;p&gt;</code>.</p>`,
-    hint: "In the − button’s function, only call setCount(count - 1) when count > 0." },
+  { id: "C3", part: "C", type: "code", title: "Run the app from the terminal", react: false, terminal: true, exports: [],
+    prompt: `<p>You’ve just opened the terminal, and you are in the <b>Desktop</b> folder. Your React app (made with Vite) is in <code>Desktop/frontend/canteen-react</code>. Its packages aren’t installed yet.</p><p>Write the commands, <b>one per line</b>, to:</p><ol><li>go into the app’s folder</li><li>install the packages</li><li>start the app</li></ol><p>Press <b>Run</b> to play your commands in a pretend terminal.</p>`,
+    hint: "cd + a folder name goes into that folder. npm has one command that downloads the packages, and Vite apps start with npm run …" },
   { id: "C4", part: "C", type: "code", title: "A user list", react: true, exports: ["UserList"], preview: "UserList",
     prompt: `<p>Write a <code>UserList</code> that loads <code>https://dummyjson.com/users</code> <b>once</b>, when it first appears.</p><ul><li>While there are no users yet, show <code>Loading…</code>.</li><li>Then show one <code>&lt;li&gt;</code> per user: first name, last name and email.</li><li>Use <code>key</code> correctly.</li></ul>`,
     hint: "useState([]) for the users. In useEffect(..., []): fetch, .json(), then setUsers(data.users). If users.length === 0, return <p>Loading…</p>." },
@@ -665,18 +642,18 @@ const Q = [
   { id: "D3", part: "D", type: "code", title: "The vanishing stock", react: false, exports: ["stockLabel"],
     prompt: `<p>The board says <code>0 left</code> for every dish, and the stock numbers disappear. Fix the <b>one line</b> that is wrong.</p>`,
     hint: "Look closely at the if. One = gives a value. Three === compare." },
-  { id: "D4", part: "D", type: "code", title: "The cart that won’t update", react: true, exports: ["Cart"], preview: "Cart",
-    prompt: `<p>Clicking Add should put the dish in the cart, but nothing changes on the page. Fix the <b>one function</b> that is wrong. Watch out: don’t add the dish twice.</p>`,
-    hint: "push changes the old array, and React doesn’t notice the same array. Give setCart a NEW array: [...cart, dish]. Then push isn’t needed." },
+  { id: "D4", part: "D", type: "code", title: "The empty menu", react: true, exports: ["Menu"], preview: "Menu",
+    prompt: `<p>The menu should show one <code>&lt;li&gt;</code> per dish, but the list is empty. There’s no error at all. Fix the <b>one line</b> that is wrong.</p>`,
+    hint: "Look at B6: which brackets come right after the => there? With { } you have to write return. With ( ) the arrow gives the value back by itself." },
   { id: "D5", part: "D", type: "code", title: "The list that crashes", react: true, exports: ["ProductList"], preview: "ProductList",
     prompt: `<p>The page goes blank with <code>products.map is not a function</code>. The reply looks like <code>{ products: [...], total: 194 }</code>. Fix the <b>one line</b> that is wrong.</p>`,
     hint: "data is the whole reply: an object, not an array. The array is inside it." },
   { id: "D6", part: "D", type: "code", title: "The blank titles", react: true, exports: ["ProductCard", "App"], preview: "App",
     prompt: `<p>The price and the stock show, but every title is blank. There’s no error at all. Fix the <b>one line</b> that is wrong.</p>`,
     hint: "Which names come out of the props in the round brackets? Is the one in the h3 one of them?" },
-  { id: "D7", part: "D", type: "code", title: "Boss bug hunt: the cart badge", react: true, exports: ["CartBadge"], preview: "CartBadge",
-    prompt: `<p>The boss level: this one has <b>5 bugs</b>. When it works, it shows <code>2 items, 0 extra</code>, and each click on Add adds one extra.</p>`,
-    hint: "The 5 bugs: the component’s name, one kind of bracket, a missing setter, an HTML attribute, and a function that runs too early." }
+  { id: "D7", part: "D", type: "code", title: "Boss bug hunt: the order summary", react: false, exports: ["summary"],
+    prompt: `<p>The boss level: this one has <b>3 bugs</b>. When it works, <code>summary(order)</code> gives back <code>Kavya ordered 3 items. Total: ₹110</code>. Fix one bug, run again, and the next one shows itself.</p>`,
+    hint: "The 3 bugs: a property name that doesn’t match the object, a spelling mistake, and a total that forgets what it already had." }
 ];
 const PARTS = { A: "Multiple choice", B: "Fill in the blanks", C: "Write the code", D: "Debugging" };
 const MAX = Q.length;
@@ -969,7 +946,7 @@ function renderCode(q) {
       </div>
       <div class="panes ${q.react ? "two" : ""}">
         ${q.react ? `<div class="pane"><h4>Preview</h4><div class="preview" id="preview"></div></div>` : ""}
-        <div class="pane"><h4>Console</h4><div class="console" id="console"></div></div>
+        <div class="pane"><h4>${q.terminal ? "Terminal" : "Console"}</h4><div class="console" id="console"></div></div>
       </div>
       <div class="pane"><h4>Checks</h4><ul class="checks" id="checks">${CHECKS[q.id].map(c => `<li class="wait"><span class="i">○</span><span></span></li>`).join("")}</ul></div>
     </div>`;
@@ -984,7 +961,7 @@ function renderCode(q) {
   el("runBtn").addEventListener("click", () => runCode(q));
   el("checkBtn").addEventListener("click", () => checkCode(q));
   el("resetBtn").addEventListener("click", () => { ta.value = starter(q.id); s.code = ta.value; paint(); save(); });
-  logTo("info", q.react ? "Press Run to see your component in the Preview. Press Check to test it." : "Press Run to see your console.log output. Press Check to test it.");
+  logTo("info", q.terminal ? "Press Run to play your commands in the pretend terminal. Press Check to test them." : q.react ? "Press Run to see your component in the Preview. Press Check to test it." : "Press Run to see your console.log output. Press Check to test it.");
   if (q.react) runCode(q, true);
 }
 const starter = id => el("starter-" + id).textContent.replace(/^\n/, "");
@@ -1016,7 +993,7 @@ function editorKeys(e, q) {
 }
 function logTo(kind, text) {
   const c = el("console"); if (!c) return;
-  const d = document.createElement("div"); d.className = kind === "err" ? "err" : kind === "info" ? "info" : "";
+  const d = document.createElement("div"); d.className = kind === "err" ? "err" : kind === "info" ? "info" : kind === "cmd" ? "cmd" : "";
   d.textContent = text; c.append(d); c.scrollTop = c.scrollHeight;
 }
 function fmt(v, top) {
@@ -1083,6 +1060,12 @@ let previewRoot = null;
 function runCode(q, quiet) {
   const c = el("console"); if (c && !quiet) c.innerHTML = "";
   if (!quiet) logTo("info", `▶ Running ${q.id}`);
+  if (q.terminal) {
+    const t = simTerminal(editorEls.ta.value);
+    if (!t.count) { logTo("info", "Write your commands first, one per line."); return; }
+    for (const o of t.out) logTo(o.kind, o.text);
+    return;
+  }
   let mod;
   try { mod = build(q, editorEls.ta.value, { console: makeConsole(logTo), fetch: window.fetch.bind(window) }); }
   catch (e) { logTo("err", friendly(e)); return; }
@@ -1092,9 +1075,63 @@ function runCode(q, quiet) {
   host.innerHTML = "";
   const Comp = mod[q.preview] || (q.id === "C2" ? mod.ProfileCard : null);
   if (typeof Comp !== "function") { host.innerHTML = `<p class="note">Write a component called <code>${q.preview}</code> to see it here.</p>`; return; }
-  const props = q.id === "D7" ? { items: ["Pen", "Book"] } : q.id === "C2" && !mod.App ? { name: "Priya", role: "Frontend", photo: "https://i.pravatar.cc/100?img=5" } : {};
+  const props = q.id === "C2" && !mod.App ? { name: "Priya", role: "Frontend", photo: "https://i.pravatar.cc/100?img=5" } : {};
   previewRoot = ReactDOM.createRoot(host);
   previewRoot.render(React.createElement(Boundary, { onError: e => logTo("err", friendly(e)) }, React.createElement(Comp, props)));
+}
+
+/* ─────────── C3: a pretend terminal ─────────── */
+const HOME = { Desktop: { frontend: { "canteen-react": { "package.json": 1, "index.html": 1, src: {}, public: {} }, "react-basics": {} }, "notes.txt": 1 }, Documents: {}, Downloads: {} };
+const APP_DIR = "Desktop/frontend/canteen-react";
+function simTerminal(code) {
+  let cwd = ["Desktop"], installed = false, running = false;
+  const out = [], log = [];
+  const say = text => out.push({ kind: "log", text }), err = text => out.push({ kind: "err", text });
+  const node = path => path.reduce((n, k) => (n && typeof n === "object" ? n[k] : undefined), HOME);
+  const where = () => "~" + (cwd.length ? "/" + cwd.join("/") : "");
+  const listing = dir => Object.keys(dir).map(k => typeof dir[k] === "object" ? k + "/" : k).join("   ") || "(empty)";
+  const lines = code.split("\n").flatMap(l => l.split("&&")).map(l => l.trim().replace(/^[$>]\s+/, "")).filter(l => l && !l.startsWith("#") && !l.startsWith("//"));
+  for (const line of lines) {
+    out.push({ kind: "cmd", text: `${where()} $ ${line}` });
+    if (running) { out.push({ kind: "info", text: "(The app is still running in this terminal. In real life, press Ctrl + C to stop it first.)" }); continue; }
+    const [cmd, ...args] = line.split(/\s+/), c = cmd.toLowerCase();
+    const hasPkg = () => { const d = node(cwd); return !!(d && d["package.json"]); };
+    const noPkg = () => err(`npm error: Could not read package.json. There is no package.json in ${where()}.\n→ Are you inside the app’s folder?`);
+    if (c === "cd") {
+      const target = args.join(" ").replace(/^["']|["']$/g, "").replace(/\\/g, "/");
+      if (!target || target === "~") { cwd = []; log.push({ cmd: "cd", at: "" }); continue; }
+      if (target.startsWith("/") || /^[a-z]:/i.test(target)) { err(`cd: ${target}: write the path from where you are, like: cd frontend`); continue; }
+      let next = target.startsWith("~") ? [] : cwd.slice(), ok = true;
+      for (const part of target.replace(/^~\/?/, "").split("/")) {
+        if (!part || part === ".") continue;
+        if (part === "..") { next.pop(); continue; }
+        const d = node(next), k = d && Object.keys(d).find(x => x.toLowerCase() === part.toLowerCase());
+        if (!k || typeof d[k] !== "object") { err(`cd: ${part}: ${k ? "that’s a file, not a folder" : "no such folder"}\n→ In ${"~" + (next.length ? "/" + next.join("/") : "")} there is: ${listing(d)}`); ok = false; break; }
+        next.push(k);
+      }
+      if (ok) { cwd = next; log.push({ cmd: "cd", at: cwd.join("/") }); }
+    } else if (c === "ls" || c === "dir") say(listing(node(cwd)));
+    else if (c === "pwd") say(where());
+    else if (c === "clear" || c === "cls") { out.length = 0; }
+    else if (c === "code") say("(VS Code opens this folder.)");
+    else if (c === "npm") {
+      const sub = (args[0] || "").toLowerCase();
+      if (sub === "install" || sub === "i") {
+        if (!hasPkg()) noPkg();
+        else { installed = true; log.push({ cmd: "install", at: cwd.join("/") }); say("added 213 packages, and audited 214 packages in 9s\nfound 0 vulnerabilities"); }
+      } else if (sub === "run" && (args[1] || "").toLowerCase() === "dev") {
+        if (!hasPkg()) noPkg();
+        else if (!installed) err("sh: vite: command not found\n→ The packages aren’t installed yet. Run npm install first.");
+        else { running = true; log.push({ cmd: "start", at: cwd.join("/") }); say("  VITE v5.4.10  ready in 412 ms\n\n  ➜  Local:   http://localhost:5173/\n  ➜  press h + enter to show help"); }
+      } else if (sub === "start") {
+        if (!hasPkg()) noPkg();
+        else err("npm error: Missing script: \"start\"\n→ This app was made with Vite. Vite apps start with npm run dev.");
+      } else if (sub === "run") err(`npm error: Missing script: "${args[1] || ""}"\n→ This app has: dev, build, preview`);
+      else err(`npm: "${args[0] || ""}" isn’t a command this terminal knows. Try npm install or npm run dev.`);
+    } else if (c === "npx") err("npx isn’t needed here: the app is already made. Go into its folder, install, and start it.");
+    else err(`${cmd}: command not found\n→ This pretend terminal knows: cd, ls, pwd, npm install, npm run dev.`);
+  }
+  return { out, log, cwd: cwd.join("/"), count: lines.length, code };
 }
 
 /* ─────────── Checks for the code questions ─────────── */
@@ -1143,7 +1180,7 @@ const CHECKS = {
     { name: "A price exactly equal to maxPrice counts", run: async m => { const r = call(m, "cheapTitles", sample(), 40); expect(same(r, ["Notebook", "Pen"]), `cheapTitles(products, 40) gave ${fmt(r)}`); } },
     { name: "Works on a different list", run: async m => { const r = call(m, "cheapTitles", [{ id: 9, title: "Chai", price: 15 }, { id: 8, title: "Laptop", price: 50000 }], 100); expect(same(r, ["Chai"]), `Got ${fmt(r)}`); } },
     { name: "The products array is not changed", run: async m => { const p = sample(); call(m, "cheapTitles", p, 50); expect(JSON.stringify(p) === JSON.stringify(sample()), "The function changed the products array. Build a new array instead."); } },
-    { name: "Uses destructuring: { title, price }", run: async (m, code) => expect(/\{\s*(title\s*,\s*price|price\s*,\s*title)\b[^}]*\}/.test(strip(code)), "Unpack the product with { title, price }, for example in the loop.") },
+    { name: "Uses destructuring: { title, price }", run: async (m, code) => expect(/\b(const|let|var)\s*\{[^{}]*\b(title|price)\b[^{}]*\}\s*(=|of\b)|\(\s*\{[^{}]*\b(title|price)\b[^{}]*\}\s*\)\s*=>/.test(strip(code)), "Unpack the product with destructuring, for example: for (const { title, price } of products)") },
   ],
   C2: [
     { name: "ProfileCard shows the name and the role", run: async m => { const r = await mount(need(m, "ProfileCard"), { name: "Ada Lovelace", role: "Engineer", photo: "ada.png" }); try { expect(!r.errors.length, friendly(r.errors[0])); const t = r.text(); expect(t.includes("Ada Lovelace") && t.includes("Engineer"), `It shows: ${JSON.stringify(t)}`); } finally { r.done(); } } },
@@ -1152,11 +1189,10 @@ const CHECKS = {
     { name: "App uses ProfileCard twice, with different people", run: async m => { const r = await mount(need(m, "App")); try { expect(!r.errors.length, friendly(r.errors[0])); const imgs = r.all("img"); expect(imgs.length >= 2, `App shows ${imgs.length} photo(s).`); expect(new Set(imgs.map(i => i.getAttribute("src"))).size >= 2 || new Set(imgs.map(i => i.getAttribute("alt"))).size >= 2, "The two cards look the same. Give them different people."); } finally { r.done(); } } },
   ],
   C3: [
-    { name: "It starts at 0", run: async m => { const r = await mount(need(m, "Counter")); try { expect(!r.errors.length, friendly(r.errors[0])); expect(firstNum(r.text()) === 0, `It shows: ${JSON.stringify(r.text())}`); } finally { r.done(); } } },
-    { name: "+ twice → 2", run: async m => { const r = await mount(need(m, "Counter")); try { const plus = r.button(/^\+$/); await r.click(plus); await r.click(r.button(/^\+$/)); expect(firstNum(r.text()) === 2, `After two clicks it shows: ${JSON.stringify(r.text())}`); } finally { r.done(); } } },
-    { name: "− never goes below 0", run: async m => { const r = await mount(need(m, "Counter")); try { await r.click(r.button(/^\+$/)); for (let i = 0; i < 3; i++) await r.click(r.button(/^[−-]$/)); expect(firstNum(r.text()) === 0, `After +1 then −3 it shows: ${JSON.stringify(r.text())}`); } finally { r.done(); } } },
-    { name: "Reset goes back to 0", run: async m => { const r = await mount(need(m, "Counter")); try { for (let i = 0; i < 3; i++) await r.click(r.button(/^\+$/)); await r.click(r.button(/reset/i)); expect(firstNum(r.text()) === 0, `After Reset it shows: ${JSON.stringify(r.text())}`); } finally { r.done(); } } },
-    { name: "Uses useState", run: async (m, code) => expect(/useState\s*\(/.test(strip(code)), "Keep the number in useState.") },
+    { name: "Ends up in the folder frontend/canteen-react", run: async t => { expect(t.count, "Write your commands first, one per line."); expect(t.cwd === APP_DIR, `After your commands you are in ~/${t.cwd || ""}. The app is in ~/${APP_DIR}.`); } },
+    { name: "Installs the packages: npm install (or npm i)", run: async t => expect(t.log.some(l => l.cmd === "install"), /npm\s+(install|i)\b/i.test(t.code) ? "npm install ran in a folder with no package.json. Go into the app’s folder first." : "There’s no npm install.") },
+    { name: "Starts the app: npm run dev", run: async t => expect(t.log.some(l => l.cmd === "start"), /npm\s+start\b/i.test(t.code) ? "npm start doesn’t work in a Vite app. Vite apps start with npm run dev." : /npm\s+run\s+dev\b/i.test(t.code) ? "npm run dev didn’t work. Press Run and read the red line in the terminal." : "There’s no npm run dev.") },
+    { name: "Installs before it starts", run: async t => { const i = t.log.findIndex(l => l.cmd === "install"), j = t.log.findIndex(l => l.cmd === "start"); expect(i !== -1 && j !== -1 && i < j, i === -1 ? "The packages are never installed." : "The app never starts."); } },
   ],
   C4: [
     { name: "Shows Loading… before the users arrive", run: async m => { const f = mockFetch(USERS); const r = await mount(withFetch(m, f, "UserList")); try { expect(!r.errors.length, friendly(r.errors[0])); expect(/loading/i.test(r.text()), `Before the data arrives it shows: ${JSON.stringify(r.text())}`); } finally { r.done(); } } },
@@ -1181,8 +1217,8 @@ const CHECKS = {
     { name: "The stock number is not changed", run: async m => { const item = { dish: "Dosa", stock: 7 }; call(m, "stockLabel", item); expect(item.stock === 7, `After the call, stock became ${fmt(item.stock)}.`); } },
   ],
   D4: [
-    { name: "Add Idli → Cart: 1 items, and Idli in the list", run: async m => { const r = await mount(need(m, "Cart")); try { expect(!r.errors.length, friendly(r.errors[0])); await r.click(r.button(/idli/i)); expect(/Cart: 1 items/.test(r.text()), `It shows: ${JSON.stringify(r.text().slice(-60))}`); expect(r.all("li").length === 1 && r.all("li")[0].textContent.includes("Idli"), `The list has ${r.all("li").length} line(s).`); } finally { r.done(); } } },
-    { name: "Each click adds exactly one dish", run: async m => { const r = await mount(need(m, "Cart")); try { await r.click(r.button(/vada/i)); await r.click(r.button(/dosa/i)); await r.click(r.button(/vada/i)); const n = r.all("li").length; expect(n === 3, `After 3 clicks the list has ${n} line(s).`); expect(/Cart: 3 items/.test(r.text()), `It shows: ${JSON.stringify(r.text().slice(-80))}`); } finally { r.done(); } } },
+    { name: "It shows 4 <li>", run: async m => { const r = await mount(need(m, "Menu")); try { expect(!r.errors.length, friendly(r.errors[0])); const n = r.all("li").length; expect(n === 4, `There are ${n} <li> on the page.`); } finally { r.done(); } } },
+    { name: "Each <li> shows the dish’s name", run: async m => { const r = await mount(need(m, "Menu")); try { const t = r.all("li").map(li => li.textContent.trim()); expect(same(t, ["Masala dosa", "Idli", "Vada", "Lemon rice"]), `The <li> say: ${fmt(t)}`); } finally { r.done(); } } },
   ],
   D5: [
     { name: "It doesn’t crash", run: async m => { const f = mockFetch(PRODUCTS); const r = await mount(withFetch(m, f, "ProductList")); try { await tick0(120); expect(!r.errors.length, friendly(r.errors[0] || "")); } finally { r.done(); } } },
@@ -1193,10 +1229,9 @@ const CHECKS = {
     { name: "App shows both cards with their titles", run: async m => { const r = await mount(need(m, "App")); try { const t = r.text(); expect(t.includes("Notebook") && t.includes("Backpack"), `It shows: ${JSON.stringify(t.slice(0, 120))}`); } finally { r.done(); } } },
   ],
   D7: [
-    { name: "The component is called CartBadge (capital C)", run: async m => expect(typeof m.CartBadge === "function", "Rename it: function CartBadge({ items })") },
-    { name: "It shows \"2 items, 0 extra\"", run: async m => { const r = await mount(need(m, "CartBadge"), { items: ["Pen", "Book"] }); try { expect(!r.errors.length, friendly(r.errors[0])); expect(/2 items, 0 extra/.test(r.text()), `It shows: ${JSON.stringify(r.text())}`); } finally { r.done(); } } },
-    { name: "Clicks on Add → 1 extra, then 2 extra", run: async m => { const r = await mount(need(m, "CartBadge"), { items: ["Pen", "Book"] }); try { await r.click(r.button(/add/i)); expect(/2 items, 1 extra/.test(r.text()), `After one click it shows: ${JSON.stringify(r.text())}`); await r.click(r.button(/add/i)); expect(/2 items, 2 extra/.test(r.text()), `After two clicks it shows: ${JSON.stringify(r.text())}`); } finally { r.done(); } } },
-    { name: "It uses className, not class", run: async (m, code) => expect(!/<[a-z]+[^>]*\sclass=/.test(strip(code)), "In JSX, write className=\"badge\".") },
+    { name: "summary(order) → \"Kavya ordered 3 items. Total: ₹110\"", run: async m => { const r = call(m, "summary", { customer: "Kavya", items: [{ dish: "Masala dosa", price: 60 }, { dish: "Filter coffee", price: 20 }, { dish: "Vada", price: 30 }] }); expect(r === "Kavya ordered 3 items. Total: ₹110", `Got ${fmt(r)}`); } },
+    { name: "Works on another order (Arjun, 2 items, ₹75)", run: async m => { const r = call(m, "summary", { customer: "Arjun", items: [{ dish: "Idli", price: 45 }, { dish: "Chai", price: 30 }] }); expect(r === "Arjun ordered 2 items. Total: ₹75", `Got ${fmt(r)}`); } },
+    { name: "An empty order → \"… ordered 0 items. Total: ₹0\"", run: async m => { const r = call(m, "summary", { customer: "Meera", items: [] }); expect(r === "Meera ordered 0 items. Total: ₹0", `Got ${fmt(r)}`); } },
   ],
 };
 const STUDENTS = () => [{ name: "Ananya", block: "A", marks: 91 }, { name: "Rohan", block: "C", marks: 88 }, { name: "Meera", block: "C", marks: 95 }, { name: "Karthik", block: "B", marks: 99 }];
@@ -1224,7 +1259,7 @@ async function checkCode(q) {
   const list = el("checks").querySelectorAll("li");
   list.forEach(li => { li.className = "wait"; li.firstElementChild.textContent = "…"; li.querySelector(".why")?.remove(); });
   let mod = null, crash = null;
-  try { mod = build(q, currentCode, { console: quiet, fetch: mockFetch({}) }); } catch (e) { crash = friendly(e); }
+  try { mod = q.terminal ? simTerminal(currentCode) : build(q, currentCode, { console: quiet, fetch: mockFetch({}) }); } catch (e) { crash = friendly(e); }
   const res = [];
   for (const [i, c] of CHECKS[q.id].entries()) {
     let pass = false, why = "";
@@ -1366,7 +1401,7 @@ async function pollStatus(now) {
     const d = await res.json();
     const offset = d.now - (t0 + Date.now()) / 2;     // the sheet's clock minus this laptop's clock
     el("waitErr").textContent = "";
-    if (S.session && d.session !== S.session) {        // the instructor started a new session
+    if ((S.session || S.start) && d.session !== S.session) {   // a new session, or a test saved before this one
       const name = S.name; S = fresh(); S.name = name; save();
       el("start").hidden = false; el("waitBox").hidden = true; el("joinBox").hidden = false; el("nameIn").value = name;
       el("startErr").textContent = "A new session has started. Press the button to join it.";

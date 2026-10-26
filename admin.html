@@ -146,7 +146,7 @@ tr.detail td { background: #fbfcfb; white-space: normal; padding: 12px 14px 18px
         <div class="sess-sub" id="sessSub">Students join with their name and wait. Press Start when everyone is in.</div>
       </div>
       <div class="sess-actions">
-        <label class="mins" id="minsWrap">Time limit <input id="minsIn" type="number" min="1" max="300" value="75" inputmode="numeric"> min</label>
+        <label class="mins" id="minsWrap">Time limit <input id="minsIn" type="number" min="1" max="300" value="45" inputmode="numeric"> min</label>
         <button class="btn big-btn" id="startTest" type="button">Start the test</button>
         <button class="btn danger" id="endTest" type="button" hidden>End the test now</button>
         <button class="btn ghost" id="newSession" type="button">New session</button>
@@ -209,7 +209,7 @@ let rows = [], serverNow = Date.now(), timer = null, state = null;
 const api = (action, extra = "") => cfg.url + (cfg.url.includes("?") ? "&" : "?") + "action=" + action + "&key=" + encodeURIComponent(cfg.key) + extra + "&t=" + Date.now();
 
 async function load() {
-  if (DEMO) { if (!demoState) demoState = { session: "demo", started: true, startAt: Date.now() - 31 * 60000, minutes: 75, ended: false }; state = demoState; rows = demoRows(); serverNow = Date.now(); render(); setStatus(`Demo · ${rows.length} students`); return; }
+  if (DEMO) { if (!demoState) demoState = { session: "demo", started: true, startAt: Date.now() - 31 * 60000, minutes: 45, ended: false }; state = demoState; rows = demoRows(); serverNow = Date.now(); render(); setStatus(`Demo · ${rows.length} students`); return; }
   if (!cfg.url || !cfg.key) { el("connect").hidden = false; setStatus("Not connected"); return; }
   setStatus("Loading…");
   try {
@@ -306,7 +306,7 @@ function renderSession() {
   if (!state) { box.hidden = true; return; }
   box.hidden = false;
   const n = rows.length, waiting = rows.filter(r => stateOf(r) === "wait").length;
-  const startAt = state.startAt ? new Date(state.startAt) : null, total = (state.minutes || 75) * 60000;
+  const startAt = state.startAt ? new Date(state.startAt) : null, total = (state.minutes || 45) * 60000;
   const t = d => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const mmss = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
   let mode = !state.started ? "waiting" : state.ended || (startAt && serverNow > startAt.getTime() + total) ? "ended" : "running";
@@ -334,9 +334,9 @@ function confirmClick(btn, label, run) {
 }
 async function act(action, extra, okText) {
   if (DEMO) {
-    if (action === "start") demoState = { session: "demo", started: true, startAt: Date.now(), minutes: Number(el("minsIn").value) || 75, ended: false };
+    if (action === "start") demoState = { session: "demo", started: true, startAt: Date.now(), minutes: Number(el("minsIn").value) || 45, ended: false };
     if (action === "end") demoState = Object.assign({}, demoState, { ended: true, endAt: Date.now() });
-    if (action === "reset") demoState = { session: "demo2", started: false, startAt: 0, minutes: 75, ended: false };
+    if (action === "reset") demoState = { session: "demo2", started: false, startAt: 0, minutes: 45, ended: false };
     el("sessNote").textContent = okText + " (demo: nothing was sent)"; load(); return;
   }
   el("sessNote").textContent = "Sending…";
