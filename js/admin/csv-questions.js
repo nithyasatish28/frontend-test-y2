@@ -3,6 +3,7 @@
 //
 //   part        the part it belongs to, e.g. "Multiple choice". Parts appear in the order they first show up.
 //   type        mcq | blanks | code          ("debugging" also works: it's a code question)
+//   points      optional: this question's points (empty = the set's default)
 //   language    mcq/blanks: js, python, shell or text (for colouring)   code: js, react, python or terminal
 //   title       a few words
 //   question    what students read (Markdown: **bold**, `code`, - lists)
@@ -26,7 +27,7 @@ import { DEFAULT_TERMINAL } from "../runner/terminal.js";
 import { parseCSV } from "./import-old.js";
 import { dialog } from "./dialog.js";
 
-export const COLUMNS = ["part", "type", "language", "title", "question", "code", "option_a", "option_b", "option_c", "option_d", "option_e", "option_f",
+export const COLUMNS = ["part", "type", "points", "language", "title", "question", "code", "option_a", "option_b", "option_c", "option_d", "option_e", "option_f",
   "answer", "any_order", "solution", "tests", "setup", "preview", "input", "hint"];
 const LETTERS = "ABCDEF";
 const OPS_OUT = { equals: "equals", includes: "contains", matches: "matches", truthy: "is true", source: "code matches" };
@@ -39,7 +40,7 @@ export function setToRows(set) {
   const secTitle = id => (set.sections.find(s => s.id === id) || {}).title || "";
   return set.questions.map(q => {
     const r = Object.fromEntries(COLUMNS.map(c => [c, ""]));
-    Object.assign(r, { part: secTitle(q.section), type: q.type, title: q.title || "", question: q.prompt || "", hint: q.hint || "" });
+    Object.assign(r, { part: secTitle(q.section), type: q.type, points: q.points ?? "", title: q.title || "", question: q.prompt || "", hint: q.hint || "" });
     if (q.type === "mcq") {
       r.language = q.codeLang || "js"; r.code = q.code || "";
       (q.options || []).slice(0, 6).forEach((o, i) => (r["option_" + "abcdef"[i]] = o));
@@ -96,6 +97,8 @@ export function rowsToSet(table) {
     if (!type) { problems.push(`Row ${rowNo}: type “${get(r, "type")}” isn’t mcq, blanks or code, so it was skipped.`); return; }
     const q = { id: "q" + randomId(8), section: sectionFor(get(r, "part")), type, title: get(r, "title").trim(), prompt: get(r, "question").trim(), hint: get(r, "hint").trim() };
     if (!q.title) problems.push(`Row ${rowNo}: has no title.`);
+    const pts = get(r, "points").trim();
+    if (pts) { if (Number(pts) > 0) q.points = Number(pts); else problems.push(`Row ${rowNo}: points “${pts}” isn’t a number above 0, so the set’s default was used.`); }
     if (type === "mcq") {
       q.code = get(r, "code").replace(/\s+$/, ""); q.codeLang = normLang(get(r, "language"), false);
       q.options = "abcdef".split("").map(l => get(r, "option_" + l).trim()).filter(Boolean);
@@ -148,7 +151,7 @@ const EXAMPLES = [
     answer: "useState ;; setLikes ;; 0 ;; likes + 1 OR 1 + likes" },
   { part: "Fill in the blanks", type: "blanks", language: "js", title: "Destructuring", question: "Fill in the blanks so the console shows `Kavya C`.",
     code: 'const student = { name: "Kavya", block: "C" };\nconst { __1__, __2__ } = student;\nconsole.log(name, block);', answer: "name OR block ;; name OR block", any_order: "yes" },
-  { part: "Write the code", type: "code", language: "js", title: "Cheap titles",
+  { part: "Write the code", type: "code", points: 3, language: "js", title: "Cheap titles",
     question: "Write `cheapTitles(products, maxPrice)`. It gives back a **new array** with the title of every product whose price is ≤ `maxPrice`.",
     code: "function cheapTitles(products, maxPrice) {\n  // your code\n}\n",
     solution: "function cheapTitles(products, maxPrice) {\n  return products.filter(p => p.price <= maxPrice).map(p => p.title);\n}\n",
@@ -193,7 +196,7 @@ export async function uploadCSV(ctx, file) {
       <label class="field"><span>Set title</span><input data-title value="${esc(file.name.replace(/\.csv$/i, "").replace(/[-_]+/g, " "))}"></label>
       <div class="form-grid cols-3">
         <label class="field"><span>Minutes</span><input data-min type="number" min="1" max="300" value="45"></label>
-        <label class="field"><span>Points</span><input data-pts type="number" min="0.5" step="0.5" value="1"></label>
+        <label class="field"><span>Points each <small>(when a row has none)</small></span><input data-pts type="number" min="0.5" step="0.5" value="1"></label>
         <label class="field"><span>Hint cost</span><input data-hint type="number" min="0" step="0.25" value="0.5"></label>
       </div>
       <p class="err" data-err></p>

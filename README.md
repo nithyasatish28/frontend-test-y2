@@ -63,7 +63,7 @@ Questions → *Add a starter set* is already done for you in the demo. Make a se
 
 ## 4. Writing questions
 
-Questions → open a set. Each set has **parts** (A, B, C…) and questions inside them; labels like `B3` are made for you. Set the time limit, points per question, and the hint cost for the whole set. **Preview as a student** tries any question exactly as students see it. **Save** (or Ctrl + S) — sessions copy the questions when they're created, so editing a set never changes past results.
+Questions → open a set. Each set has **parts** (A, B, C…) and questions inside them; labels like `B3` are made for you. Set the time limit, the default points per question, and the hint cost for the whole set. Any question can have its own **Points** (in the editor, or the `points` column of the CSV); leave it empty to use the default. **Preview as a student** tries any question exactly as students see it. **Save** (or Ctrl + S) — sessions copy the questions when they're created, so editing a set never changes past results.
 
 - **Multiple choice**: optional code shown above, 2–8 options, mark the correct one. Use `` `backticks` `` for code in options.
 - **Fill in the blanks**: write the code with `__1__`, `__2__`… where the blanks go (*Insert a blank* does this), then list the accepted answers for each blank, one per line. Spaces and a final `;` are ignored; capitals count. Tick *any order* when blanks can be swapped (like `{ name, block }`).
@@ -83,7 +83,7 @@ Questions → open a set. Each set has **parts** (A, B, C…) and questions insi
 
 Python runs in the student's browser (Pyodide). For Python questions the hidden test setup also runs once *before* the student's code, so it can provide stand-in modules for libraries the browser doesn't have (the FastAPI questions do this with a small fake `fastapi` and `functions`). The first Python question downloads about 10 MB, then it's cached. A program that runs for more than 8 seconds is stopped (for loops that never end).
 
-**Writing questions in Excel or Google Sheets.** Questions → **Download CSV template** gives a sheet with one example of every question type. One row is one question; the columns are `part, type, language, title, question, code, option_a…option_f, answer, any_order, solution, tests, setup, preview, input, hint`. Fill it in and use **Upload CSV**: it becomes a new question set and opens in the editor, with any problems flagged. Inside a set, **Download as CSV** gives you that set in the same format.
+**Writing questions in Excel or Google Sheets.** Questions → **Download CSV template** gives a sheet with one example of every question type. One row is one question; the columns are `part, type, points, language, title, question, code, option_a…option_f, answer, any_order, solution, tests, setup, preview, input, hint`. Fill it in and use **Upload CSV**: it becomes a new question set and opens in the editor, with any problems flagged. Inside a set, **Download as CSV** gives you that set in the same format.
 
 - `answer`: for multiple choice, the letter (`B`). For blanks, the answers in order separated by `;;`, with other accepted answers joined by `OR`: `useState ;; setLikes ;; likes + 1 OR 1 + likes`.
 - `tests` (code questions): one test per line (Alt + Enter in Excel, Ctrl + Enter in Sheets), as `name | check | compare | expected | message`, where compare is `equals`, `contains`, `matches`, `is true` or `code matches`.

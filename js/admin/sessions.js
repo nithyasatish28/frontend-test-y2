@@ -28,7 +28,7 @@ export function mount(view, ctx) {
       list.map(s => {
         const st = s.stats || {};
         return `<tr class="click" data-id="${esc(s.id)}" tabindex="0"><td>${s.createdAt ? dateTime(s.createdAt) : "–"}</td><td class="name">${esc(s.title || "Untitled")}</td><td>${esc(s.setTitle || "")}</td><td>${s.imported ? `<span class="spill off">Imported</span>` : phasePill(s, ctx.settings.activeSessionId === s.id)}</td>
-          <td class="n">${st.joined ?? "–"}</td><td class="n">${st.submitted ?? "–"}</td><td class="n">${st.joined ? fmtPts(st.avg) + " / " + (s.questions || []).length : "–"}</td><td class="n">${st.joined ? fmtPts(st.top) : "–"}</td></tr>`;
+          <td class="n">${st.joined ?? "–"}</td><td class="n">${st.submitted ?? "–"}</td><td class="n">${st.joined ? fmtPts(st.avg) + " / " + fmtPts(st.max ?? (s.questions || []).length) : "–"}</td><td class="n">${st.joined ? fmtPts(st.top) : "–"}</td></tr>`;
       }).join("") + "</tbody>";
     t.querySelectorAll("tr[data-id]").forEach(tr => {
       const open = () => ctx.go("#/session/" + tr.dataset.id);

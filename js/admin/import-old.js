@@ -136,7 +136,7 @@ export async function importOld(ctx) {
     const end = endMs || startMs + minutes * 60000;
     const attempts = rows.filter(r => String(r.name || "").trim()).map((r, i) => attemptFrom(r, i, s, end));
     const all = attempts.map(a => stats(s, a.q));
-    s.stats = { joined: attempts.length, submitted: attempts.filter(a => a.status === "submitted").length, avg: attempts.length ? Math.round(all.reduce((x, y) => x + y.score, 0) / attempts.length * 10) / 10 : 0, top: attempts.length ? Math.max(...all.map(x => x.score)) : 0 };
+    s.stats = { joined: attempts.length, submitted: attempts.filter(a => a.status === "submitted").length, avg: attempts.length ? Math.round(all.reduce((x, y) => x + y.score, 0) / attempts.length * 10) / 10 : 0, top: attempts.length ? Math.max(...all.map(x => x.score)) : 0, max: stats(s, {}).max };
     const id = await store.importSession(s, attempts);
     return { id, n: attempts.length };
   };

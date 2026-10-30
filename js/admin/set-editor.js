@@ -135,7 +135,7 @@ export function mount(view, ctx, setId) {
       <label class="field"><span>Description <small>(only you see it)</small></span><input data-k="description" value="${esc(set.description || "")}"></label>
       <div class="form-grid cols-3">
         <label class="field"><span>Minutes</span><input data-k="minutes" type="number" min="1" max="300" value="${set.minutes ?? 45}"></label>
-        <label class="field"><span>Points</span><input data-k="points" type="number" min="0.5" step="0.5" value="${set.points ?? 1}"></label>
+        <label class="field"><span>Points each</span><input data-k="points" type="number" min="0.5" step="0.5" value="${set.points ?? 1}"></label>
         <label class="field"><span>Hint cost</span><input data-k="hintPenalty" type="number" min="0" step="0.25" value="${set.hintPenalty ?? 0.5}"></label>
       </div>
       <h3>Parts and questions</h3>
@@ -144,7 +144,7 @@ export function mount(view, ctx, setId) {
         return `<div class="sec-row"><b>${String.fromCharCode(65 + i)}</b><input data-sec="${esc(s.id)}" value="${esc(s.title)}" aria-label="Part ${String.fromCharCode(65 + i)} name">
           <button class="icon-btn" data-secup="${i}" type="button" title="Move part up" ${i === 0 ? "disabled" : ""}>↑</button>
           <button class="icon-btn" data-secdel="${i}" type="button" title="${qs.length ? "Move or delete its questions first" : "Delete this part"}" ${qs.length || set.sections.length === 1 ? "disabled" : ""}>✕</button></div>
-          <div class="qitems">${qs.map(q => `<button class="qitem${q.id === sel ? " on" : ""}" data-id="${esc(q.id)}" type="button"><span class="lab">${q.label}</span><span class="ttl">${esc(q.title || "(no title)")}</span><span class="warnmark"></span><span class="typ">${q.type === "code" ? esc(q.lang === "react" ? "React" : q.lang === "python" ? "Python" : q.lang === "terminal" ? "Terminal" : "JS") : q.type === "mcq" ? "MCQ" : "Blanks"}</span></button>`).join("")}</div>
+          <div class="qitems">${qs.map(q => `<button class="qitem${q.id === sel ? " on" : ""}" data-id="${esc(q.id)}" type="button"><span class="lab">${q.label}</span><span class="ttl">${esc(q.title || "(no title)")}</span>${q.points ? `<span class="typ">${q.points} pt</span>` : ""}<span class="warnmark"></span><span class="typ">${q.type === "code" ? esc(q.lang === "react" ? "React" : q.lang === "python" ? "Python" : q.lang === "terminal" ? "Terminal" : "JS") : q.type === "mcq" ? "MCQ" : "Blanks"}</span></button>`).join("")}</div>
           <div class="addrow"><button data-add="mcq" data-to="${esc(s.id)}" type="button">+ Multiple choice</button><button data-add="blanks" data-to="${esc(s.id)}" type="button">+ Blanks</button><button data-add="code" data-to="${esc(s.id)}" type="button">+ Code</button></div>`;
       }).join("")}
       <button class="btn ghost small" data-addsec type="button" style="margin-top:10px">+ Add a part</button>`;
@@ -185,9 +185,10 @@ export function mount(view, ctx, setId) {
         <button class="btn ghost small" data-dupq type="button">Duplicate</button>
         <button class="btn ghost small" data-delq type="button">Delete</button>
       </div>
-      <div class="form-grid cols-2">
+      <div class="form-grid cols-3">
         <label class="field"><span>Part</span><select data-part>${set.sections.map((s, i) => `<option value="${esc(s.id)}" ${s.id === q.section ? "selected" : ""}>${String.fromCharCode(65 + i)} · ${esc(s.title)}</option>`).join("")}</select></label>
         <label class="field"><span>Type</span><select data-type>${Object.entries(TYPES).map(([k, v]) => `<option value="${k}" ${k === q.type ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+        <label class="field"><span>Points <small>(empty = the set’s ${set.points ?? 1})</small></span><input data-points type="number" min="0.5" step="0.5" value="${q.points ?? ""}" placeholder="${set.points ?? 1}"></label>
       </div>
       <label class="field"><span>Title</span><input data-q="title" value="${esc(q.title)}" placeholder="A few words, e.g. Destructuring an object"></label>
       <label class="field"><span>Question</span><textarea data-q="prompt" rows="4" placeholder="What students read. You can use **bold**, \`code\`, lists and code blocks.">${esc(q.prompt)}</textarea></label>
@@ -207,10 +208,15 @@ export function mount(view, ctx, setId) {
     });
     form.querySelector("[data-type]").addEventListener("change", e => {
       const fresh = newQuestion(e.target.value, q.section);
-      const keep = { id: q.id, title: q.title, prompt: q.prompt, hint: q.hint };
+      const keep = { id: q.id, title: q.title, prompt: q.prompt, hint: q.hint, ...(q.points ? { points: q.points } : {}) };
       for (const k of Object.keys(q)) delete q[k];
       Object.assign(q, fresh, keep);
       markDirty(); drawSide(); drawForm();
+    });
+    form.querySelector("[data-points]").addEventListener("input", e => {
+      const v = Number(e.target.value);
+      if (e.target.value === "" || !(v > 0)) delete q.points; else q.points = v;
+      markDirty(); drawSide();
     });
     form.querySelector("[data-up]").addEventListener("click", () => move(-1));
     form.querySelector("[data-down]").addEventListener("click", () => move(1));

@@ -12,7 +12,7 @@
 import { esc, fmtPts } from "../lib/util.js";
 import { markdown, inline } from "../lib/markdown.js";
 import { highlight } from "../lib/highlight.js";
-import { mcqRight, blanksMarks } from "../lib/grade.js";
+import { mcqRight, blanksMarks, qPoints } from "../lib/grade.js";
 import { createEditor } from "./editor.js";
 import { runCode, checkCode, checkNames } from "../runner/index.js";
 
@@ -20,10 +20,10 @@ const LETTERS = "ABCDEFGH";
 
 export function renderQuestion(card, opts) {
   const { q, entry, session, isLocked, meta = {}, nav = {}, onChange = () => {} } = opts;
-  const pts = session.points ?? 1, pen = session.hintPenalty ?? 0.5;
+  const pts = qPoints(q, session), pen = session.hintPenalty ?? 0.5;
   const status = entry.s === "c" ? `<span class="pill status-correct">Correct · +${fmtPts(pts)}</span>` : entry.s === "w" ? `<span class="pill status-wrong">Not correct</span>` : "";
   card.innerHTML = `
-    <div class="qhead"><span class="pill">${esc(q.label || "")}</span>${meta.sectionTitle ? `<span>Part ${esc(q.sectionKey || "")} · ${esc(meta.sectionTitle)}</span>` : ""}${meta.total ? `<span>Question ${meta.index + 1} of ${meta.total}</span>` : ""}${status}</div>
+    <div class="qhead"><span class="pill">${esc(q.label || "")}</span>${meta.sectionTitle ? `<span>Part ${esc(q.sectionKey || "")} · ${esc(meta.sectionTitle)}</span>` : ""}${meta.total ? `<span>Question ${meta.index + 1} of ${meta.total}</span>` : ""}<span>${fmtPts(pts)} point${pts === 1 ? "" : "s"}</span>${status}</div>
     <h2>${esc(q.title)}</h2>
     <div class="prompt">${markdown(q.prompt)}</div>
     <div class="qbody"></div>

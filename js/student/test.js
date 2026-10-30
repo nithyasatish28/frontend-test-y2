@@ -1,6 +1,6 @@
 // One student taking one session: waiting room, the test itself, saving, timer and results.
 import { el, esc, fmtPts, mmss, clock, debounce } from "../lib/util.js";
-import { stats, entryPoints, isDone } from "../lib/grade.js";
+import { stats, entryPoints, isDone, qPoints } from "../lib/grade.js";
 import { renderQuestion } from "../ui/question.js";
 import { showGate, hideGate, gateMessage } from "./gate.js";
 
@@ -158,10 +158,11 @@ export class Test {
   /* ─────────── Screens ─────────── */
   rulesHtml() {
     const s = this.session, n = s.questions.length, secs = s.sections.map(x => x.title.toLowerCase()).filter(Boolean);
-    const pen = s.hintPenalty ?? 0.5, pts = s.points ?? 1;
+    const pen = s.hintPenalty ?? 0.5, all = s.questions.map(q => qPoints(q, s)), lo = Math.min(...all), hi = Math.max(...all);
+    const ptsText = lo === hi ? `+${fmtPts(lo)}` : `+${fmtPts(lo)}–${fmtPts(hi)}`, ptsLabel = lo === hi ? "for each correct answer" : "per correct answer (shown on each question)";
     return `<p>${n} question${n === 1 ? "" : "s"}${secs.length ? ` in ${secs.length} part${secs.length === 1 ? "" : "s"}: ${esc(secs.join(", "))}` : ""}.</p>
       <div class="rules">
-        <div><b class="pos">+${fmtPts(pts)}</b><span>for each correct answer</span></div>
+        <div><b class="pos">${ptsText}</b><span>${ptsLabel}</span></div>
         <div><b class="neg">−${fmtPts(pen)}</b><span>for each hint you open</span></div>
         <div><b>${s.minutes}</b><span>minutes</span></div>
       </div>
@@ -256,21 +257,21 @@ export class Test {
   }
 
   renderScores() {
-    const s = this.session, st = stats(s, this.A.q), pen = s.hintPenalty ?? 0.5, pts = s.points ?? 1;
+    const s = this.session, st = stats(s, this.A.q), pen = s.hintPenalty ?? 0.5;
     el("bigScore").innerHTML = `${fmtPts(st.score)}<small> / ${fmtPts(st.max)}</small>`;
-    el("stCorrect").textContent = st.correct; el("stCorrectLabel").textContent = `correct (+${fmtPts(pts)} each)`;
+    el("stCorrect").textContent = st.correct; el("stCorrectLabel").textContent = "correct";
     el("stHints").textContent = st.hints; el("stHintsLabel").textContent = `hints (−${fmtPts(pen)} each)`;
     el("stLeft").textContent = st.total - st.done;
     let rows = `<thead><tr><th>Question</th><th>Result</th><th class="n">Answer</th><th class="n">Hint</th><th class="n">Points</th></tr></thead><tbody>`;
     for (const sec of s.sections) {
       const qs = s.questions.filter(q => q.sectionKey === sec.key);
       if (!qs.length) continue;
-      const sub = qs.reduce((a, q) => a + entryPoints(this.A.q[q.id], s), 0);
-      rows += `<tr class="part"><td colspan="4">Part ${sec.key} · ${esc(sec.title)}</td><td class="n">${fmtPts(sub)} / ${fmtPts(qs.length * pts)}</td></tr>`;
+      const sub = qs.reduce((a, q) => a + entryPoints(this.A.q[q.id], s, q), 0), outOf = qs.reduce((a, q) => a + qPoints(q, s), 0);
+      rows += `<tr class="part"><td colspan="4">Part ${sec.key} · ${esc(sec.title)}</td><td class="n">${fmtPts(sub)} / ${fmtPts(outOf)}</td></tr>`;
       for (const q of qs) {
         const e = this.A.q[q.id] || {};
         const res = e.s === "c" ? "✓ Correct" : e.s === "w" ? "✗ Not correct" : q.type === "code" && e.checked != null ? `In progress (${esc(e.checks || "")} checks)` : "Not done";
-        rows += `<tr><td><b>${q.label}</b> ${esc(q.title)}</td><td>${res}</td><td class="n pos">${e.s === "c" ? "+" + fmtPts(pts) : "0"}</td><td class="n neg">${e.h ? "−" + fmtPts(pen) : ""}</td><td class="n"><b>${fmtPts(entryPoints(e, s))}</b></td></tr>`;
+        rows += `<tr><td><b>${q.label}</b> ${esc(q.title)}</td><td>${res}</td><td class="n pos">${e.s === "c" ? "+" + fmtPts(qPoints(q, s)) : "0"}</td><td class="n neg">${e.h ? "−" + fmtPts(pen) : ""}</td><td class="n"><b>${fmtPts(entryPoints(e, s, q))}</b></td></tr>`;
       }
     }
     el("scoreTable").innerHTML = rows + "</tbody>";

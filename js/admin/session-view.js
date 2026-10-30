@@ -134,7 +134,7 @@ export function mount(view, ctx, sid, isLiveTab = false) {
   /* ─────────── tiles, hardest questions ─────────── */
   function drawSummary() {
     const n = rows.length, all = rows.map(rowStats), sub = rows.filter(r => r.status === "submitted").length, idle = rows.filter(r => stateOf(r) === "idle").length;
-    const avg = n ? all.reduce((s, x) => s + x.score, 0) / n : 0, top = n ? Math.max(...all.map(x => x.score)) : 0, max = all[0]?.max ?? session.questions.length;
+    const avg = n ? all.reduce((s, x) => s + x.score, 0) / n : 0, top = n ? Math.max(...all.map(x => x.score)) : 0, max = stats(session, {}).max;
     $("[data-tiles]").innerHTML = [
       [n, "students joined"], [`${sub}<small> / ${n}</small>`, "submitted"],
       [`${fmtPts(avg)}<small> / ${fmtPts(max)}</small>`, "average score"], [`${fmtPts(top)}<small> / ${fmtPts(max)}</small>`, "highest score"],
@@ -148,10 +148,10 @@ export function mount(view, ctx, sid, isLiveTab = false) {
       return `<div class="dq ${cls}" title="${esc(q.label)} ${esc(q.title)}: ${right} of ${tried} right"><b>${esc(q.label)}</b><span>${tried ? pct + "%" : "–"}</span></div>`;
     }).join("");
     // Keep a summary on the session, for the Sessions list.
-    const summary = { joined: n, submitted: sub, avg: Math.round(avg * 10) / 10, top };
+    const summary = { joined: n, submitted: sub, avg: Math.round(avg * 10) / 10, top, max };
     const key = JSON.stringify(summary), saved = session.stats || {};
     if (!attemptsLoaded) return;
-    if (["joined", "submitted", "avg", "top"].every(k => saved[k] === summary[k])) { pendingStats = null; clearTimeout(statsTimer); lastStats = key; return; }
+    if (["joined", "submitted", "avg", "top", "max"].every(k => saved[k] === summary[k])) { pendingStats = null; clearTimeout(statsTimer); lastStats = key; return; }
     if (key !== lastStats) {
       lastStats = key; clearTimeout(statsTimer);
       pendingStats = summary;

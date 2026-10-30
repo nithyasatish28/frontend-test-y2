@@ -28,6 +28,7 @@ export const blankNumbers = code => [...String(code || "").matchAll(/__(\d+)__/g
 /* ─────────── Question set → session copy ─────────── */
 export function publishQuestion(q, salt) {
   const base = { id: q.id, label: q.label, sectionKey: q.sectionKey, type: q.type, title: q.title || "", prompt: q.prompt || "", hint: q.hint || "" };
+  if (Number(q.points) > 0) base.points = Number(q.points);
   if (q.type === "mcq") {
     return { ...base, code: q.code || "", codeLang: q.codeLang || "js", options: q.options || [], key: hashOf(salt, q.id, String(q.answer)) };
   }
@@ -82,22 +83,25 @@ export function blanksMarks(q, salt, values) {
 
 /* ─────────── Scores ─────────── */
 // entry.s: "c" correct, "w" wrong, null not done.  entry.h: hint opened.
-export function entryPoints(entry, session) {
+// A question's own points if it has them, otherwise the set's default.
+export const qPoints = (q, session) => (Number(q?.points) > 0 ? Number(q.points) : session.points ?? 1);
+export function entryPoints(entry, session, q) {
   if (!entry) return 0;
-  return (entry.s === "c" ? (session.points ?? 1) : 0) - (entry.h ? (session.hintPenalty ?? 0.5) : 0);
+  return (entry.s === "c" ? qPoints(q, session) : 0) - (entry.h ? (session.hintPenalty ?? 0.5) : 0);
 }
 export const isDone = (q, e) => !!e && (q.type === "code" ? e.s === "c" : e.s != null);
 export function stats(session, qmap = {}) {
   const qs = session.questions || [];
-  let score = 0, correct = 0, hints = 0, done = 0;
+  let score = 0, correct = 0, hints = 0, done = 0, max = 0;
   for (const q of qs) {
     const e = qmap[q.id];
-    score += entryPoints(e, session);
+    score += entryPoints(e, session, q);
+    max += qPoints(q, session);
     if (e?.s === "c") correct++;
     if (e?.h) hints++;
     if (isDone(q, e)) done++;
   }
-  return { score: Math.round(score * 100) / 100, correct, hints, done, total: qs.length, max: qs.length * (session.points ?? 1) };
+  return { score: Math.round(score * 100) / 100, correct, hints, done, total: qs.length, max: Math.round(max * 100) / 100 };
 }
 // One-letter status for the admin grid: c correct, w wrong, p code started, "" nothing; + "h" if a hint was used.
 export function cellCode(q, e) {
