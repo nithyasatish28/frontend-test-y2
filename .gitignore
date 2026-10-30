@@ -1,0 +1,19 @@
+# Firebase deploy cache (made by `firebase deploy`)
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+
+# Node / npm (if you ever install packages here)
+node_modules/
+npm-debug.log*
+
+# Mac and editor files
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Local secrets, if you ever add any
+.env
+.env.*
