@@ -7,6 +7,7 @@ import { createEditor } from "../ui/editor.js";
 import { checkCode, LANGS } from "../runner/index.js";
 import { DEFAULT_TERMINAL } from "../runner/terminal.js";
 import { dialog } from "./dialog.js";
+import { downloadSetCSV } from "./csv-questions.js";
 
 export let leaveGuard = null;
 
@@ -73,6 +74,7 @@ export function mount(view, ctx, setId) {
       <a class="crumb" href="#/questions">← All question sets</a>
       <div class="savebar">
         <span class="state" data-state></span>
+        <button class="btn ghost small" data-dlcsv type="button">Download as CSV</button>
         <button class="btn ghost small" data-dl type="button">Download as a file</button>
         <button class="btn ghost small" data-dup type="button">Duplicate set</button>
         <button class="btn ghost small" data-delset type="button">Delete set</button>
@@ -84,6 +86,7 @@ export function mount(view, ctx, setId) {
         <section class="card" data-form></section>
       </div>`;
     $("[data-save]").addEventListener("click", save);
+    $("[data-dlcsv]").addEventListener("click", () => downloadSetCSV(clean(set)));
     $("[data-dl]").addEventListener("click", () => download(`${(set.title || "questions").replace(/[^\p{L}\p{N}]+/gu, "-").toLowerCase()}.json`, JSON.stringify({ format: "class-test-question-set", version: 1, questionSet: set }, null, 2), "application/json"));
     $("[data-dup]").addEventListener("click", async () => {
       try { const id = await store.saveSet(null, { ...clone(set), title: (set.title || "Untitled") + " (copy)" }); toast("Copied. You’re now editing the copy."); dirty = false; ctx.go("#/questions/" + id); }

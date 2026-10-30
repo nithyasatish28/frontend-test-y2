@@ -2,6 +2,7 @@
 import { esc, day, uid as randomId, toast } from "../lib/util.js";
 import { STARTER_SETS } from "../data/starter-sets.js";
 import { dialog } from "./dialog.js";
+import { downloadTemplate, uploadCSV } from "./csv-questions.js";
 
 const TYPE_NAMES = { mcq: "multiple choice", blanks: "fill in the blanks", code: "code" };
 export const blankSet = () => ({
@@ -13,12 +14,15 @@ export function mount(view, ctx) {
   const { store } = ctx;
   view.innerHTML = `
     <div class="page-head"><h1>Question sets</h1>
+      <button class="btn ghost" data-tpl type="button">Download CSV template</button>
+      <button class="btn ghost" data-csv type="button">Upload CSV</button>
       <button class="btn ghost" data-import type="button">Import a file</button>
       <button class="btn ghost" data-starter type="button">Add a starter set</button>
       <button class="btn" data-new type="button">New question set</button></div>
-    <p class="sub" style="margin:-6px 0 0">A question set is a test you can reuse. Each session copies the questions when it’s created, so editing a set never changes past results.</p>
+    <p class="sub" style="margin:-6px 0 0">A question set is a test you can reuse. To write questions in Excel or Google Sheets, download the CSV template, fill it in, and upload it. Each session copies the questions when it’s created, so editing a set never changes past results.</p>
     <div class="set-cards" data-cards></div>
-    <input type="file" accept=".json,application/json" data-file hidden>`;
+    <input type="file" accept=".json,application/json" data-file hidden>
+    <input type="file" accept=".csv,text/csv" data-csvfile hidden>`;
   const $ = s => view.querySelector(s);
   let sets = [];
   const draw = () => {
@@ -45,6 +49,9 @@ export function mount(view, ctx) {
     try { const id = await store.saveSet(null, JSON.parse(JSON.stringify(STARTER_SETS[Number(pick)]))); toast("Added"); ctx.go("#/questions/" + id); }
     catch (e) { toast(e.message, "err"); }
   });
+  $("[data-tpl]").addEventListener("click", downloadTemplate);
+  $("[data-csv]").addEventListener("click", () => $("[data-csvfile]").click());
+  $("[data-csvfile]").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) uploadCSV(ctx, f); });
   $("[data-import]").addEventListener("click", () => $("[data-file]").click());
   $("[data-file]").addEventListener("change", async e => {
     const file = e.target.files[0]; e.target.value = "";
