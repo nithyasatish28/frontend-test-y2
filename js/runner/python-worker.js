@@ -57,12 +57,23 @@ def _exec(src, stdin_text, echo):
 def _strip_comments(src):
     return re.sub(r"(?m)^\s*#.*$|\s+#[^'\"\n]*$", "", src)
 
-def __run(src, stdin_text):
+# The hidden setup also runs once BEFORE the student's program, so it can provide
+# stand-in modules (e.g. a small fake "fastapi" in sys.modules) that their imports find.
+def _prelude(setup):
+    if setup.strip():
+        try:
+            exec(setup, {"__name__": "__setup__"})
+        except BaseException:
+            pass
+
+def __run(src, stdin_text, setup=""):
+    _prelude(setup)
     ns, out, err = _exec(src, stdin_text, True)
     return json.dumps({"out": out, "err": err})
 
 def __check(src, stdin_text, setup, tests_json):
     tests = json.loads(tests_json)
+    _prelude(setup)
     ns, out, err = _exec(src, stdin_text, False)
     env = dict(ns)
     env.update(OUTPUT=out, SOURCE=src, ERROR=err, run=lambda text="": _exec(src, text, False)[1])
@@ -130,7 +141,7 @@ self.onmessage = async e => {
   try {
     await ready;
     const res = kind === "run"
-      ? py.globals.get("__run")(code, stdin || "")
+      ? py.globals.get("__run")(code, stdin || "", setup || "")
       : py.globals.get("__check")(code, stdin || "", setup || "", JSON.stringify(tests || []));
     self.postMessage({ id, ok: true, result: JSON.parse(res) });
   } catch (err) {

@@ -49,7 +49,7 @@ async function call(msg, onLoading) {
 
 export async function runPython(q, code, { log, stdin, onLoading }) {
   try {
-    const r = await call({ kind: "run", code, stdin: stdin ?? q.stdin ?? "" }, onLoading);
+    const r = await call({ kind: "run", code, stdin: stdin ?? q.stdin ?? "", setup: q.setup || "" }, onLoading);
     if (r.out) log("log", r.out.replace(/\n$/, ""));
     if (r.err) log("err", r.err);
     if (!r.out && !r.err) log("info", "(Nothing was printed.)");
