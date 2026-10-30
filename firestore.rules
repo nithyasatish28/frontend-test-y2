@@ -2,7 +2,8 @@ rules_version = '2';
 
 // Who can read and write what.
 //   Instructors: anyone with a document in /admins (the first one is created by admin.html's setup).
-//   Students:    anyone with a document in /users that isn't disabled.
+//   Students:    anyone with a session's link. They type a name and get a nameless (anonymous) login,
+//                which keeps each student to their own answers.
 service cloud.firestore {
   match /databases/{db}/documents {
 
@@ -10,14 +11,20 @@ service cloud.firestore {
     function isAdmin() {
       return signedIn() && exists(/databases/$(db)/documents/admins/$(request.auth.uid));
     }
-    function signupOpen() {
-      let s = /databases/$(db)/documents/settings/app;
-      return exists(s) && get(s).data.get('signupOpen', false) == true;
+    // A session's link works while it's waiting or running, and for 10 minutes after it ends
+    // (so students can see their score). After that it's closed.
+    function linkOpen(s) {
+      return s.status == 'waiting'
+        || (s.status == 'running' && request.time < s.startAt + duration.value(s.minutes + 10, 'm'))
+        || (s.status == 'ended' && request.time < s.endAt + duration.value(10, 'm'));
     }
-    function activeStudent() {
-      let u = /databases/$(db)/documents/users/$(request.auth.uid);
-      return signedIn() && exists(u) && get(u).data.get('disabled', false) != true;
+    // Students can save while the test is open, plus 3 minutes of grace.
+    function canSave(s) {
+      return s.status == 'waiting'
+        || (s.status == 'running' && request.time < s.startAt + duration.value(s.minutes + 3, 'm'))
+        || (s.status == 'ended' && request.time < s.endAt + duration.value(3, 'm'));
     }
+    function goodName(d) { return d.name is string && d.name.size() > 0 && d.name.size() <= 60; }
 
     // One-time setup: the first instructor account.
     match /meta/owner {
@@ -38,31 +45,9 @@ service cloud.firestore {
       allow update, delete: if isAdmin() && uid != request.auth.uid;
     }
 
-    // Sign-ups open/closed, and which session the plain student link opens.
+    // Which session the Live tab shows.
     match /settings/app {
-      allow get: if true;
-      allow list: if false;
-      allow write: if isAdmin();
-    }
-
-    // name → login email, so students can sign in with their name.
-    match /usernames/{key} {
-      allow get: if true;
-      allow list: if isAdmin();
-      allow create: if signedIn() && signupOpen()
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.keys().hasOnly(['uid', 'email', 'name']);
-      allow update: if false;
-      allow delete: if isAdmin();
-    }
-
-    match /users/{uid} {
-      allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
-      allow list: if isAdmin();
-      allow create: if signedIn() && request.auth.uid == uid && signupOpen()
-        && request.resource.data.disabled == false
-        && getAfter(/databases/$(db)/documents/usernames/$(request.resource.data.nameKey)).data.uid == uid;
-      allow update, delete: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     // Question sets hold the answers, so only instructors can read them.
@@ -72,28 +57,25 @@ service cloud.firestore {
 
     // A session holds a copy of the questions with the answers hashed.
     match /sessions/{sid} {
-      allow get: if signedIn();
+      allow get: if isAdmin() || (signedIn() && linkOpen(resource.data));
       allow list, write: if isAdmin();
 
-      // Students can save while the test is open, plus 3 minutes of grace.
-      function canSave() {
-        let s = get(/databases/$(db)/documents/sessions/$(sid)).data;
-        return s.status == 'waiting'
-          || (s.status == 'running' && request.time < s.startAt + duration.value(s.minutes + 3, 'm'))
-          || (s.status == 'ended' && request.time < s.endAt + duration.value(3, 'm'));
-      }
+      function session() { return get(/databases/$(db)/documents/sessions/$(sid)).data; }
 
       match /attempts/{uid} {
         allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
         allow create: if isAdmin()
-          || (activeStudent() && request.auth.uid == uid
-              && request.resource.data.uid == uid && canSave());
+          || (signedIn() && request.auth.uid == uid
+              && request.resource.data.uid == uid && goodName(request.resource.data)
+              && canSave(session()));
         allow update: if isAdmin()
-          || (activeStudent() && request.auth.uid == uid
-              && request.resource.data.uid == uid
+          || (signedIn() && request.auth.uid == uid
+              && request.resource.data.uid == uid && goodName(request.resource.data)
               && resource.data.get('status', '') != 'submitted'
-              && canSave());
-        allow delete: if isAdmin();
+              && canSave(session()));
+        // A student can take back their own entry before the test starts ("Not you?").
+        allow delete: if isAdmin()
+          || (signedIn() && request.auth.uid == uid && resource.data.get('status', '') == 'waiting');
       }
     }
   }

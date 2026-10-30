@@ -5,7 +5,7 @@ import { phaseOf, phasePill, newSession } from "./sessions.js";
 
 const IDLE_MIN = 5;
 
-// "Live" tab: whichever session is open for students.
+// "Live" tab: the session made most recently (or picked from Sessions).
 export function mountActive(view, ctx) {
   let inner = null, shown;
   const off = ctx.onSettings(s => {
@@ -82,7 +82,7 @@ export function mount(view, ctx, sid, isLiveTab = false) {
     const ph = phaseOf(session, now()), n = rows.length, active = ctx.settings.activeSessionId === sid;
     const total = session.minutes * 60000, end = session.startAt ? session.startAt + total : 0;
     $("[data-sess]").className = "card session " + ph;
-    $("[data-label]").innerHTML = `${esc(session.title || "Session")} · ${phasePill(session, active)}`;
+    $("[data-label]").innerHTML = `${esc(session.title || "Session")} · ${phasePill(session)}`;
     if (ph === "waiting") {
       $("[data-big]").textContent = `${n} student${n === 1 ? "" : "s"} joined`;
       $("[data-subline]").textContent = `${session.questions.length} questions from “${session.setTitle}”. Students open the link, log in and wait. Press Start when everyone is in.`;
@@ -99,7 +99,9 @@ export function mount(view, ctx, sid, isLiveTab = false) {
     }
     if (!drawSession.actionsFor || drawSession.actionsFor !== ph + active) { drawSession.actionsFor = ph + active; drawActions(ph, active); }
     view.querySelector(".linkbox").hidden = $("[data-linknote]").hidden = !!session.imported;
-    $("[data-linknote]").textContent = active ? `This session is open for students, so the plain link (${ctx.studentLink("")}) opens it too.` : "Only this link opens this session.";
+    $("[data-linknote]").textContent = ph === "ended"
+      ? (now() < (session.endAt || end) + 10 * 60000 ? "The test has ended. This link closes 10 minutes after the end, so students can still see their score until then." : "This link is closed: the test has ended.")
+      : "Students open this link and type their name. It closes 10 minutes after the test ends.";
     // The timer ran out: mark it ended so late saves are refused after the grace period.
     if (ph === "ended" && session.status === "running" && !endingNow) {
       endingNow = true;
@@ -110,7 +112,7 @@ export function mount(view, ctx, sid, isLiveTab = false) {
     const a = $("[data-actions]");
     a.innerHTML = (ph === "waiting" ? `<label class="mins">Time limit <input data-mins type="number" min="1" max="300" value="${session.minutes}" inputmode="numeric"> min</label><button class="btn big-btn" data-start type="button">Start the test</button>` : "") +
       (ph === "running" ? `<button class="btn ghost" data-more type="button">+5 minutes</button><button class="btn danger" data-end type="button">End the test now</button>` : "") +
-      (session.imported ? "" : active ? `<button class="btn ghost" data-close type="button" title="The plain student link will show “No test is open”">Close for students</button>` : `<button class="btn ghost" data-activate type="button">Open on the student link</button>`) +
+
       (ph !== "running" ? `<button class="btn ghost" data-del type="button">Delete session</button>` : "");
     const note = t => ($("[data-note]").textContent = t);
     const act = async (patch, okText) => { note("Sending…"); try { await store.updateSession(sid, patch); note(okText); } catch (e) { note("That didn’t work: " + e.message); } };
@@ -121,8 +123,6 @@ export function mount(view, ctx, sid, isLiveTab = false) {
     });
     a.querySelector("[data-more]")?.addEventListener("click", () => act({ minutes: session.minutes + 5 }, "Added 5 minutes for everyone."));
     a.querySelector("[data-end]")?.addEventListener("click", e => confirmClick(e.currentTarget, () => act({ status: "ended", endAt: store.NOW }, "Ended. Every open test submits itself.")));
-    a.querySelector("[data-close]")?.addEventListener("click", () => store.setSettings({ activeSessionId: null }).then(() => note("Closed. The plain link now says no test is open. This session’s own link still works.")));
-    a.querySelector("[data-activate]")?.addEventListener("click", () => store.setSettings({ activeSessionId: sid }).then(() => note("The plain student link now opens this session.")));
     a.querySelector("[data-del]")?.addEventListener("click", e => confirmClick(e.currentTarget, async () => {
       try {
         if (active) await store.setSettings({ activeSessionId: null });
@@ -199,7 +199,7 @@ export function mount(view, ctx, sid, isLiveTab = false) {
       const open = openIds.has(r.id);
       return `<tr class="srow click${open ? " open" : ""}" data-id="${esc(r.id)}" tabindex="0" aria-expanded="${open}"><td class="n" style="text-align:left">${order.indexOf(r) + 1}</td><td class="name">${esc(r.name)}</td><td class="n"><b>${fmtPts(st.score)}</b></td><td class="n">${st.done} / ${max}</td><td class="n">${st.hints}</td><td><div class="cells">${cells}</div></td><td>${pill}</td><td class="n">${seenText(r, m)}</td></tr>` + (open ? detailRow(r) : "");
     }).join("");
-    t.innerHTML = head + `<tbody>${body || `<tr><td colspan="8" class="empty">${rows.length ? "No students match." : "No students yet. They appear here as soon as they open the link and log in."}</td></tr>`}</tbody>`;
+    t.innerHTML = head + `<tbody>${body || `<tr><td colspan="8" class="empty">${rows.length ? "No students match." : "No students yet. They appear here as soon as they open the link and type their name."}</td></tr>`}</tbody>`;
     t.querySelectorAll("tr.srow").forEach(tr => {
       const toggle = () => { const id = tr.dataset.id; openIds.has(id) ? openIds.delete(id) : openIds.add(id); drawStudents(); };
       tr.addEventListener("click", toggle);

@@ -3,9 +3,7 @@
 // Firestore layout
 //   meta/owner                      { uid, email }           first instructor (one-time setup)
 //   admins/{uid}                    { email, name }          instructors
-//   settings/app                    { signupOpen, activeSessionId }
-//   usernames/{nameKey}             { uid, email, name }     lets students log in with their name
-//   users/{uid}                     { name, nameKey, email, createdAt, disabled }
+//   settings/app                    { activeSessionId }      the session shown in the Live tab
 //   questionSets/{id}               the editable sets, answers included (instructors only)
 //   sessions/{id}                   one sitting of a test: status, timer, and the questions students see
 //   sessions/{id}/attempts/{uid}    one student's answers in that session
@@ -23,7 +21,8 @@ const MESSAGES = {
   "auth/weak-password": "Use a password with at least 6 characters.",
   "auth/too-many-requests": "Too many tries. Wait a minute, then try again.",
   "auth/network-request-failed": "Can’t reach the internet. Check the connection and try again.",
-  "auth/operation-not-allowed": "Email/password sign-in isn’t switched on in Firebase (Authentication → Sign-in method).",
+  "auth/operation-not-allowed": "That sign-in type isn’t switched on in Firebase (Authentication → Sign-in method: Email/Password for you, Anonymous for students).",
+  "auth/admin-restricted-operation": "Students can’t join yet: switch on Anonymous sign-in in Firebase (Authentication → Sign-in method → Anonymous).",
   "auth/configuration-not-found": "Authentication isn’t set up in Firebase yet (Authentication → Get started).",
   "permission-denied": "Firebase said no (permission denied). Check that the security rules from firestore.rules are published.",
   "unavailable": "Can’t reach Firebase right now. Check the internet connection.",
@@ -39,9 +38,9 @@ export async function create(role) {
   const [A, AU, F] = await Promise.all([
     import(CDN + "firebase-app.js"), import(CDN + "firebase-auth.js"), import(CDN + "firebase-firestore.js"),
   ]);
-  const app = A.initializeApp(firebaseConfig);
-  // Students: logged in only for this tab (shared lab laptops). Instructors: stay logged in.
-  const auth = AU.initializeAuth(app, { persistence: role === "student" ? AU.browserSessionPersistence : AU.browserLocalPersistence });
+  // Students get their own app instance, so a student tab never logs the instructor out (or the other way round).
+  const app = role === "student" ? A.initializeApp(firebaseConfig, "student") : A.initializeApp(firebaseConfig);
+  const auth = AU.initializeAuth(app, { persistence: AU.browserLocalPersistence });
   const db = F.getFirestore(app);
   let offset = 0;
 
@@ -74,34 +73,9 @@ export async function create(role) {
     onAuth(cb) { return AU.onAuthStateChanged(auth, u => cb(u ? { uid: u.uid, email: u.email } : null)); },
     signOut: () => AU.signOut(auth),
 
-    studentSignUp: wrap(async (name, password) => {
-      const key = nameKey(name);
-      if (key.length < 2) throw fail("Type your full name.");
-      const settings = await F.getDoc(d("settings", "app"));
-      if (!settings.exists() || !settings.get("signupOpen")) throw fail("New accounts are closed right now. Ask your instructor to open sign-ups.");
-      if ((await F.getDoc(d("usernames", key))).exists()) throw fail("That name already has an account. Log in instead, or add your initial or roll number to your name.");
-      const slug = key.normalize("NFKD").replace(/[^a-z0-9-]/g, "").slice(0, 30) || "student";
-      const email = `${slug}.${randomId(6)}@${STUDENT_EMAIL_DOMAIN}`;
-      const cred = await AU.createUserWithEmailAndPassword(auth, email, password);
-      try {
-        const b = F.writeBatch(db);
-        b.set(d("usernames", key), { uid: cred.user.uid, email, name: name.trim() });
-        b.set(d("users", cred.user.uid), { name: name.trim(), nameKey: key, email, createdAt: F.serverTimestamp(), disabled: false });
-        await b.commit();
-      } catch (e) {
-        try { await cred.user.delete(); } catch {}
-        throw e.code === "permission-denied" ? fail("Couldn’t create the account: the name was just taken, or sign-ups closed. Try again.") : e;
-      }
-      return { uid: cred.user.uid };
-    }),
-
-    studentSignIn: wrap(async (name, password) => {
-      const key = nameKey(name);
-      const snap = await F.getDoc(d("usernames", key));
-      if (!snap.exists()) throw fail("There’s no account with that name. Check the spelling, or create an account.");
-      const cred = await AU.signInWithEmailAndPassword(auth, snap.get("email"), password);
-      return { uid: cred.user.uid };
-    }),
+    // Students only type a name. Behind the scenes they get a nameless Firebase login,
+    // so the rules can still keep each student to their own answers.
+    studentSignIn: wrap(async () => (await AU.signInAnonymously(auth)).user.uid),
 
     adminSignIn: wrap(async (email, password) => (await AU.signInWithEmailAndPassword(auth, email.trim(), password)).user.uid),
     adminResetPassword: wrap(email => AU.sendPasswordResetEmail(auth, email.trim())),
@@ -113,26 +87,13 @@ export async function create(role) {
       b.set(d("meta", "owner"), { uid: cred.user.uid, email: email.trim() });
       b.set(d("admins", cred.user.uid), { email: email.trim(), name: name.trim() });
       await b.commit();
-      await F.setDoc(d("settings", "app"), { signupOpen: true, activeSessionId: null }, { merge: true });
+      await F.setDoc(d("settings", "app"), { activeSessionId: null }, { merge: true });
       return cred.user.uid;
     }),
 
     /* ─────────── Settings ─────────── */
     watchSettings: cb => watchDoc(d("settings", "app"), cb),
     setSettings: wrap(patch => F.setDoc(d("settings", "app"), patch, { merge: true })),
-
-    /* ─────────── Students ─────────── */
-    getUser: wrap(async id => data(await F.getDoc(d("users", id)))),
-    watchUsers: cb => watchCol(c("users"), cb),
-    updateUser: wrap((id, patch) => F.updateDoc(d("users", id), patch)),
-    // Frees the name so the student can sign up again (for a forgotten password). Their old account is switched off.
-    releaseName: wrap(async user => {
-      const b = F.writeBatch(db);
-      const u = await F.getDoc(d("usernames", user.nameKey));
-      if (u.exists() && u.get("uid") === user.id) b.delete(d("usernames", user.nameKey));
-      b.update(d("users", user.id), { disabled: true, released: true });
-      await b.commit();
-    }),
 
     /* ─────────── Question sets ─────────── */
     watchSets: cb => watchCol(F.query(c("questionSets"), F.orderBy("updatedAt", "desc")), cb),
@@ -182,6 +143,7 @@ export async function create(role) {
     getAttempt: wrap(async (sid, id) => data(await F.getDoc(d("sessions", sid, "attempts", id)))),
     saveAttempt: wrap((sid, id, patch) => F.setDoc(d("sessions", sid, "attempts", id), { ...patch, uid: id }, { merge: true })),
     deleteAttempt: wrap((sid, id) => F.deleteDoc(d("sessions", sid, "attempts", id))),
+    getSession: wrap(async id => data(await F.getDoc(d("sessions", id)))),
     syncClock: wrap(async (sid, id) => {
       const ref = d("sessions", sid, "attempts", id), t0 = Date.now();
       await F.setDoc(ref, { uid: id, lastSeen: F.serverTimestamp() }, { merge: true });

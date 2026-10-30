@@ -91,7 +91,7 @@ export class Test {
     }
     // ended
     if (this.A.status === "working") { this.finish(true); return; }
-    if (!this.joined()) { gateMessage(this.session.title || "Test", "This test has ended.", { name: this.name, onSignOut: this.onSignOut }); return; }
+    if (!this.joined()) { gateMessage(this.session.title || "Test", "This test has ended."); return; }
     this.showTest();
   }
 
@@ -182,7 +182,7 @@ export class Test {
         <h2>You’re in, ${esc(this.name)}.</h2>
         <p>Wait here. The test starts for everyone when your instructor presses Start. Keep this tab open.</p>
       </div>
-      <div class="gate-foot"><span class="note">Signed in as <b>${esc(this.name)}</b></span><button class="linkbtn" data-signout type="button">Not you? Sign out</button></div>`);
+      <div class="gate-foot"><span class="note">Joined as <b>${esc(this.name)}</b></span><button class="linkbtn" data-signout type="button">Not you? Start again</button></div>`);
     s.querySelector("[data-signout]").addEventListener("click", this.onSignOut);
     this.shown = "waiting";
   }

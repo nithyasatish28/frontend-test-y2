@@ -1,6 +1,6 @@
-# Class Test
+# Checkpoint
 
-A test-taking app for a class: students log in with a **name and password**, wait in a waiting room, and start together when you press Start. You watch every answer live, keep every past session, and write your own questions — multiple choice, fill in the blanks, and code in **JavaScript, React, Python** or **terminal commands**.
+A test-taking app for a class: students open the session’s link and type their **name** (no accounts), wait in a waiting room, and start together when you press Start. You watch every answer live, keep every past session, and write your own questions — multiple choice, fill in the blanks, and code in **JavaScript, React, Python** or **terminal commands**.
 
 - `index.html` — the student page
 - `admin.html` — the instructor page (Live · Sessions · Questions · Students)
@@ -19,7 +19,7 @@ npx serve .
 (or `python -m http.server 8000`), then open:
 
 - `http://localhost:3000/admin.html` — log in with **demo@example.com / demo1234**
-- `http://localhost:3000/index.html` in **another tab** — create a student account
+- make a session, then open its **student link** in another tab and type a name
 
 Questions → *Add a starter set* is already done for you in the demo. Make a session (Sessions → New session), join as the student, press Start. "Reset demo data" in the yellow bar starts over.
 
@@ -27,7 +27,7 @@ Questions → *Add a starter set* is already done for you in the demo. Make a se
 
 1. Go to <https://console.firebase.google.com> → **Add project**. Google Analytics isn't needed.
 2. **Add a web app**: on the project's home page press the `</>` icon, give it a name, and copy the `firebaseConfig` it shows. Paste the values into **`js/config.js`** (replace the `PASTE_HERE` block). Also set `APP_TITLE` there.
-3. **Authentication** → *Get started* → *Sign-in method* → **Email/Password** → Enable → Save.
+3. **Authentication** → *Get started* → *Sign-in method*: enable **Email/Password** (for you) and **Anonymous** (for students, who only type a name) → Save.
 4. **Firestore Database** → *Create database* → pick a location near you (for India: `asia-south1`, Mumbai) → **production mode**.
 5. Firestore → **Rules** tab → delete what's there, paste the whole of **`firestore.rules`**, press **Publish**. (The app doesn't work until the rules are published.)
 6. **Put the folder online.** Either:
@@ -44,21 +44,21 @@ Questions → *Add a starter set* is already done for you in the demo. Make a se
 
 ## 3. Running a class
 
-1. **Questions** → *Add a starter set* (the original JS + React test, or the Python sample), or make your own.
-2. **Students** → make sure *Let new students create accounts* is on, and copy the link.
-3. **Sessions** → *New session*: pick the set, the title, and the time limit. Leave *Open it for students on the plain student link* ticked.
-4. Students open the link. First time: **New here? Create an account** (name + password). After that: log in. They land in the waiting room.
+1. **Questions** → *Add a starter set* (the original JS + React test, or the Python sample), upload a CSV, or make your own.
+2. **Sessions** → *New session*: pick the set, the title, and the time limit.
+3. Copy the session’s **Student link** from its page and share it. Every session has its own link.
+4. Students open the link and type their full name. They land in the waiting room. (“Not you? Start again” lets them fix a typo before the test starts.)
 5. **Live** shows who has joined. Press **Start the test** (twice, to confirm). Everyone's test opens at once and the timer is the same for all.
 6. Watch the grid fill in. Click a student to see exactly what they answered. **+5 minutes** and **End the test now** work for everyone instantly. When time runs out, every open test submits itself.
 7. **Download scores** or **Download all answers** (CSV, opens in Excel/Sheets).
-8. Every session stays in **Sessions** — open any of them later to see the results again. For the next class, just make a new session; it replaces the old one on the plain link.
+8. Every session stays in **Sessions** — open any of them later to see the results again. For the next class, make a new session and share its new link.
 
 **Tips**
-- Each session also has its **own link** (`index.html?s=…`), shown on its page. Use it if two classes run at once.
-- Students stay logged in only for that browser tab (good for shared lab computers).
+- **The link closes when the test is over.** Students who are still on the page see their score for 10 minutes after the end; after that the link shows “This test link is closed” to everyone, so it can’t be passed on to the next batch.
+- If a student closes the tab by mistake, they open the same link **on the same computer** and carry on where they were. On a different computer they’d start as a new entry.
+- Anyone with the link can join under any name, so share it only with the class. Two students typing the same name show up as two separate rows.
 - If a student’s test went wrong, open them in the session and press **Clear this student’s attempt**: they start again from empty (if the test is still open).
-- **Forgotten student password**: Students → **Free the name**. Their old account is switched off and they create a new one with the same name. **Forgotten instructor password**: “Forgot the password?” on the login screen emails a reset link.
-- Turn sign-ups **off** once everyone has an account, so nobody else can make one.
+- **Forgotten instructor password**: “Forgot the password?” on the login screen emails a reset link.
 - **Another instructor**: they need an account first — Firebase console → Authentication → *Add user* (their email and a password) → copy their **User UID** → Firestore → *Start collection* `admins` (if needed) → *Add document* with Document ID = that UID, fields `email` and `name`.
 
 ## 4. Writing questions
@@ -81,14 +81,20 @@ Questions → open a set. Each set has **parts** (A, B, C…) and questions insi
   Sample data used by tests (like `products` or `USERS`) goes in **Hidden test setup**. The “How … tests work” box under Tests lists everything you can use. Always press **Run the tests on the model answer** (all should pass) and **…on the starter code** (they shouldn't).
 - **Terminal** questions play the students' commands in a pretend terminal; set the folders, where it opens, the app's folder, and whether it starts with `npm run dev` (Vite) or `npm start`. The checks are built in.
 
-Python runs in the student's browser (Pyodide). The first Python question downloads about 10 MB, then it's cached. A program that runs for more than 8 seconds is stopped (for loops that never end).
+Python runs in the student's browser (Pyodide). For Python questions the hidden test setup also runs once *before* the student's code, so it can provide stand-in modules for libraries the browser doesn't have (the FastAPI questions do this with a small fake `fastapi` and `functions`). The first Python question downloads about 10 MB, then it's cached. A program that runs for more than 8 seconds is stopped (for loops that never end).
+
+**Writing questions in Excel or Google Sheets.** Questions → **Download CSV template** gives a sheet with one example of every question type. One row is one question; the columns are `part, type, language, title, question, code, option_a…option_f, answer, any_order, solution, tests, setup, preview, input, hint`. Fill it in and use **Upload CSV**: it becomes a new question set and opens in the editor, with any problems flagged. Inside a set, **Download as CSV** gives you that set in the same format.
+
+- `answer`: for multiple choice, the letter (`B`). For blanks, the answers in order separated by `;;`, with other accepted answers joined by `OR`: `useState ;; setLikes ;; likes + 1 OR 1 + likes`.
+- `tests` (code questions): one test per line (Alt + Enter in Excel, Ctrl + Enter in Sheets), as `name | check | compare | expected | message`, where compare is `equals`, `contains`, `matches`, `is true` or `code matches`.
+- Save from Excel as **CSV UTF-8**, so symbols like ₹ survive.
 
 *Download as a file* saves a set as JSON; *Import a file* on the Question sets page loads one — handy for sharing sets with colleagues or keeping a backup.
 
 ## 5. Good to know
 
 - **Free plan limits.** Firebase's free (Spark) plan allows 20,000 writes and 50,000 reads a day. As a rough guide, a 45-minute test with 60 students uses several thousand writes (answers plus a once-a-minute “still here” signal), so a few classes a day fit. Usage is shown in the Firebase console; the pay-as-you-go plan costs very little at this size.
-- **How cheat-proof it is.** Answers are checked in the student's browser, as before: multiple-choice and blank answers are only sent as salted hashes, and the database rules stop students from reading other students' answers, changing their answers after they submit, or saving after the time limit (plus 3 minutes' grace). A student who knows browser developer tools could still fake their own score. For high-stakes exams you'd want checking on a server (Firebase Cloud Functions, which needs the pay-as-you-go plan).
+- **How cheat-proof it is.** Answers are checked in the student's browser, as before: multiple-choice and blank answers are only sent as salted hashes, and the database rules stop students from reading other students' answers, opening a session’s link after it closes, changing their answers after they submit, or saving after the time limit (plus 3 minutes' grace). A student who knows browser developer tools could still fake their own score. For high-stakes exams you'd want checking on a server (Firebase Cloud Functions, which needs the pay-as-you-go plan).
 - **Old results**: Sessions → **Import old results** brings in the latest class straight from the old Google Sheet (old web app URL + admin key), or older classes from the CSV files the old admin page downloaded. Each one appears as a past session. Do this after Firebase is set up, so they're saved to your account.
 
 ## How it's built

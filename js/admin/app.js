@@ -1,8 +1,7 @@
-// Instructor page: login, then four tabs.
-//   #/live            the session that's open for students right now
+// Instructor page: login, then three tabs.
+//   #/live            the most recent session
 //   #/sessions        every session, newest first   (#/session/<id> for one)
 //   #/questions       question sets                 (#/questions/<id> to edit one)
-//   #/students        accounts, sign-ups on/off, the student link
 import { APP_TITLE } from "../config.js";
 import { openStore } from "../store/index.js";
 import { el, esc } from "../lib/util.js";
@@ -11,7 +10,6 @@ import * as live from "./session-view.js";
 import * as sessions from "./sessions.js";
 import * as sets from "./sets.js";
 import * as editor from "./set-editor.js";
-import * as students from "./students.js";
 
 const ctx = { store: null, user: null, settings: {}, go: hash => { location.hash = hash; } };
 let cleanup = null, settingsSubs = new Set(), creating = null;
@@ -37,7 +35,7 @@ async function boot() {
     try { ok = await store.isAdmin(u.uid); } catch {}
     if (!ok) {
       el("gate").hidden = false;
-      el("gateSheet").innerHTML = `<h1>Not an instructor</h1><p>${esc(u.email || "This account")} isn’t an instructor account.</p><p class="note">Students use the student page. Another instructor can be added in Firebase (see SETUP.md).</p><button class="btn ghost" id="outBtn" type="button">Sign out</button>`;
+      el("gateSheet").innerHTML = `<h1>Not an instructor</h1><p>${esc(u.email || "This account")} isn’t an instructor account.</p><p class="note">Students don’t log in: they use each session’s link. Another instructor can be added in Firebase (see README.md).</p><button class="btn ghost" id="outBtn" type="button">Sign out</button>`;
       el("outBtn").addEventListener("click", () => store.signOut());
       return;
     }
@@ -65,7 +63,6 @@ function route() {
   else if (page === "session" && id) cleanup = live.mount(view, ctx, id);
   else if (page === "questions" && id) cleanup = editor.mount(view, ctx, id);
   else if (page === "questions") cleanup = sets.mount(view, ctx);
-  else if (page === "students") cleanup = students.mount(view, ctx);
   else cleanup = live.mountActive(view, ctx);
   scrollTo(0, 0);
 }

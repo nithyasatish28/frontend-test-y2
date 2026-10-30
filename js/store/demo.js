@@ -22,7 +22,7 @@ function seed() {
     ["_auth/" + owner]: { email: "demo@example.com", password: "demo1234" },
     "meta/owner": { uid: owner, email: "demo@example.com" },
     ["admins/" + owner]: { email: "demo@example.com", name: "Demo instructor" },
-    "settings/app": { signupOpen: true, activeSessionId: null },
+    "settings/app": { activeSessionId: null },
   };
   STARTER_SETS.forEach((s, i) => { docs["questionSets/starter" + i] = { ...clone(s), createdAt: Date.now() - (i + 1) * 1000, updatedAt: Date.now() - (i + 1) * 1000 }; });
   return { docs };
@@ -59,10 +59,12 @@ export async function create(role) {
   const authCbs = new Set();
   const setUser = u => { user = u; u ? authStore.setItem(AUTH_KEY, JSON.stringify(u)) : authStore.removeItem(AUTH_KEY); authCbs.forEach(cb => cb(u)); };
 
+  // The same limits the Firestore rules apply: a session's link works until 10 minutes after it ends.
+  const isAdmin = () => !!(user && db.docs["admins/" + user.uid]);
+  const linkOpen = s => { const now = Date.now(); return s.status === "waiting" || (s.status === "running" && now < s.startAt + (s.minutes + 10) * 60000) || (s.status === "ended" && now < s.endAt + 10 * 60000); };
   // The same limits the Firestore rules apply to students' saves.
   const canSave = (sid, uid) => {
-    const s = db.docs["sessions/" + sid], a = db.docs[`sessions/${sid}/attempts/${uid}`], u = db.docs["users/" + uid], now = Date.now();
-    if (!u || u.disabled) return false;
+    const s = db.docs["sessions/" + sid], a = db.docs[`sessions/${sid}/attempts/${uid}`], now = Date.now();
     if (a && a.status === "submitted") return false;
     if (!s) return false;
     return s.status === "waiting" || (s.status === "running" && now < s.startAt + (s.minutes + 3) * 60000) || (s.status === "ended" && now < s.endAt + 3 * 60000);
@@ -78,29 +80,7 @@ export async function create(role) {
     onAuth(cb) { authCbs.add(cb); setTimeout(() => cb(user), 0); return () => authCbs.delete(cb); },
     async signOut() { setUser(null); },
 
-    async studentSignUp(name, password) {
-      await later(); load();
-      const key = nameKey(name);
-      if (key.length < 2) throw fail("Type your full name.");
-      if (!db.docs["settings/app"]?.signupOpen) throw fail("New accounts are closed right now. Ask your instructor to open sign-ups.");
-      if (db.docs["usernames/" + key]) throw fail("That name already has an account. Log in instead, or add your initial or roll number to your name.");
-      if (String(password).length < 6) throw fail("Use a password with at least 6 characters.");
-      const id = "u" + randomId(10), email = `${key}.${randomId(6)}@students.demo`;
-      set("_auth/" + id, { email, password });
-      set("usernames/" + key, { uid: id, email, name: name.trim() });
-      set("users/" + id, { name: name.trim(), nameKey: key, email, createdAt: NOW, disabled: false });
-      commit();
-      setUser({ uid: id, email });
-      return { uid: id };
-    },
-    async studentSignIn(name, password) {
-      await later(); load();
-      const u = db.docs["usernames/" + nameKey(name)];
-      if (!u) throw fail("There’s no account with that name. Check the spelling, or create an account.");
-      if (db.docs["_auth/" + u.uid]?.password !== password) throw fail("Wrong password.");
-      setUser({ uid: u.uid, email: u.email });
-      return { uid: u.uid };
-    },
+    async studentSignIn() { await later(); const id = "u" + randomId(10); setUser({ uid: id, email: null }); return id; },
     async adminSignIn(email, password) {
       await later(); load();
       const hit = Object.entries(db.docs).find(([k, v]) => k.startsWith("_auth/") && v.email === email.trim().toLowerCase());
@@ -118,7 +98,7 @@ export async function create(role) {
         const id = "a" + randomId(10);
         set("_auth/" + id, { email: email.trim().toLowerCase(), password });
         set("meta/owner", { uid: id, email }); set("admins/" + id, { email, name });
-        set("settings/app", { signupOpen: true, activeSessionId: null }, true);
+        set("settings/app", { activeSessionId: null }, true);
         setTimeout(() => setUser({ uid: id, email }), 0);
         return id;
       });
@@ -126,14 +106,6 @@ export async function create(role) {
 
     watchSettings: cb => watch(() => get("settings/app"), cb),
     setSettings: patch => write(() => set("settings/app", patch, true)),
-
-    getUser: async id => { load(); return clone(get("users/" + id)); },
-    watchUsers: cb => watch(() => col("users"), cb),
-    updateUser: (id, patch) => write(() => set("users/" + id, patch, true)),
-    releaseName: user => write(() => {
-      if (db.docs["usernames/" + user.nameKey]?.uid === user.id) del("usernames/" + user.nameKey);
-      set("users/" + user.id, { disabled: true, released: true }, true);
-    }),
 
     watchSets: cb => watch(() => col("questionSets").sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)), cb),
     getSet: async id => { load(); return clone(get("questionSets/" + id)); },
@@ -154,17 +126,18 @@ export async function create(role) {
     }),
     updateSession: (id, patch) => write(() => set("sessions/" + id, patch, true)),
     deleteSession: id => write(() => { for (const k of Object.keys(db.docs)) if (k.startsWith(`sessions/${id}/`)) del(k); del("sessions/" + id); }),
-    watchSession: (id, cb) => watch(() => get("sessions/" + id), cb),
+    watchSession: (id, cb) => watch(() => { const s = get("sessions/" + id); return s && !isAdmin() && !linkOpen(s) ? { __closed: true } : s; }, v => (v && v.__closed ? cb(null, fail("Firebase said no (permission denied).")) : cb(v))),
     watchSessions: cb => watch(() => col("sessions").sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)), cb),
 
     watchAttempts: (sid, cb) => watch(() => col(`sessions/${sid}/attempts`), cb),
     watchAttempt: (sid, id, cb) => watch(() => get(`sessions/${sid}/attempts/${id}`), cb),
     getAttempt: async (sid, id) => { load(); return clone(get(`sessions/${sid}/attempts/${id}`)); },
     saveAttempt: (sid, id, patch) => write(() => {
-      if (user && user.uid === id && !db.docs["admins/" + id] && !canSave(sid, id)) throw fail("Firebase said no (permission denied).");
+      if (user && user.uid === id && !isAdmin() && !canSave(sid, id)) throw fail("Firebase said no (permission denied).");
       set(`sessions/${sid}/attempts/${id}`, { ...patch, uid: id }, true);
     }),
     deleteAttempt: (sid, id) => write(() => del(`sessions/${sid}/attempts/${id}`)),
+    getSession: async id => { load(); const s = get("sessions/" + id); if (s && !isAdmin() && !linkOpen(s)) throw fail("Firebase said no (permission denied)."); return clone(s); },
     syncClock: async (sid, id) => {
       await write(() => { if (!canSave(sid, id)) throw fail("Firebase said no (permission denied)."); set(`sessions/${sid}/attempts/${id}`, { uid: id, lastSeen: NOW }, true); });
       return 0;

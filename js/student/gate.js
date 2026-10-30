@@ -16,7 +16,7 @@ export function gateMessage(title, text, { name, onSignOut, extra = "" } = {}) {
     <h1>${esc(title)}</h1>
     <p>${text}</p>
     ${extra}
-    ${onSignOut ? `<div class="gate-foot"><span class="note">${name ? `Signed in as <b>${esc(name)}</b>` : ""}</span><button class="linkbtn" data-signout type="button">Sign out</button></div>` : ""}`);
+    ${onSignOut ? `<div class="gate-foot"><span class="note">${name ? `Joined as <b>${esc(name)}</b>` : ""}</span><button class="linkbtn" data-signout type="button">Not you? Start again</button></div>` : ""}`);
   s.querySelector("[data-signout]")?.addEventListener("click", onSignOut);
   return s;
 }
