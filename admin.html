@@ -11,10 +11,12 @@
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/student.css">
 <link rel="stylesheet" href="css/admin.css">
-<!-- React + Babel let you try React questions in the question editor. -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<!-- React + Babel let you try React questions in the question editor.
+     Served from this folder, not a CDN: a blocked or slow CDN must not break a test in progress.
+     Versions, and how to refresh them: vendor/README.md -->
+<script src="vendor/react.production.min.js"></script>
+<script src="vendor/react-dom.production.min.js"></script>
+<script src="vendor/babel.min.js"></script>
 <script type="module" src="js/admin/app.js"></script>
 </head>
 <body class="admin">
@@ -29,6 +31,7 @@
     <a class="tab" href="#/live" data-tab="live">Live</a>
     <a class="tab" href="#/sessions" data-tab="sessions">Sessions</a>
     <a class="tab" href="#/questions" data-tab="questions">Questions</a>
+    <a class="tab" href="#/instructors" data-tab="instructors" id="tabInstructors" hidden>Instructors<b class="badge" id="pendingCount" hidden></b></a>
   </nav>
 </header>
 <main class="wrap" id="view"></main>

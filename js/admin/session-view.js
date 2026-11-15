@@ -2,6 +2,7 @@
 import { esc, fmtPts, mmss, clock, dateTime, confirmClick, download, csvLine, copyText, toast } from "../lib/util.js";
 import { stats, cellCode, answerText } from "../lib/grade.js";
 import { phaseOf, phasePill, newSession } from "./sessions.js";
+import { regradeDialog } from "./regrade.js";
 
 const IDLE_MIN = 5;
 
@@ -48,7 +49,7 @@ export function mount(view, ctx, sid, isLiveTab = false) {
       <div class="legend"><span>% right, out of the students who have tried it ·</span><span><i style="background:var(--bad-soft);border:1px solid #f3c3bd"></i>under 40%</span><span><i style="background:var(--hint-soft);border:1px solid #f0d6a6"></i>40–70%</span><span><i style="background:var(--good-soft);border:1px solid #b9e3c9"></i>over 70%</span></div></section>
     <section class="card">
       <div class="page-head" style="margin-bottom:8px"><h2 style="margin:0;margin-right:auto">Students</h2>
-        <button class="btn ghost small" data-csv type="button">Download scores (CSV)</button><button class="btn ghost small" data-csv2 type="button">Download all answers (CSV)</button></div>
+        <button class="btn ghost small" data-regrade type="button">Re-grade &amp; verify</button><button class="btn ghost small" data-csv type="button">Download scores (CSV)</button><button class="btn ghost small" data-csv2 type="button">Download all answers (CSV)</button></div>
       <p class="sub" style="margin:0 0 12px">Click a student to see exactly what they answered.</p>
       <div class="tools">
         <input type="search" data-search placeholder="Search by name" aria-label="Search students">
@@ -65,6 +66,12 @@ export function mount(view, ctx, sid, isLiveTab = false) {
   ["search", "sort", "filter"].forEach(k => $(`[data-${k}]`).addEventListener("input", drawStudents));
   $("[data-csv]").addEventListener("click", () => csvScores());
   $("[data-csv2]").addEventListener("click", () => csvAnswers());
+  // Marks are given in the student's browser, so they can be checked again here. See regrade.js.
+  $("[data-regrade]").addEventListener("click", () => {
+    if (!session) return;
+    if (!rows.length) { toast("No students have joined yet."); return; }
+    regradeDialog(ctx, sid, session, rows, { canApply: phaseOf(session, now()) === "ended" });
+  });
 
   const now = () => store.serverNow();
   const minsAgo = r => (r.lastSeen ? Math.max(0, Math.round((now() - r.lastSeen) / 60000)) : null);
@@ -231,7 +238,7 @@ export function mount(view, ctx, sid, isLiveTab = false) {
       const isCode = q.type === "code";
       return `<div class="ans${isCode && body ? " code" : ""}"><b>${esc(q.label)}</b>${res}${extra}${hint}${body ? (isCode ? `<pre>${esc(body)}</pre>` : `<div class="t">${esc(body)}</div>`) : ""}</div>`;
     }).join("");
-    return `<tr class="detail"><td colspan="8"><div class="detail-actions"><span class="note">Joined ${r.joinedAt ? clock(r.joinedAt) : "–"}${r.finishedAt ? ` · submitted ${clock(r.finishedAt)}` : ""}</span><button class="btn ghost small" data-reset="${esc(r.id)}" type="button">Clear this student’s attempt</button></div><div class="answers">${items}</div></td></tr>`;
+    return `<tr class="detail"><td colspan="8"><div class="detail-actions"><span class="note">Joined ${r.joinedAt ? clock(r.joinedAt) : "–"}${r.finishedAt ? ` · submitted ${clock(r.finishedAt)}` : ""}${r.regradedAt ? ` · re-graded ${clock(r.regradedAt)}` : ""}</span><button class="btn ghost small" data-reset="${esc(r.id)}" type="button">Clear this student’s attempt</button></div><div class="answers">${items}</div></td></tr>`;
   }
 
   /* ─────────── CSV ─────────── */

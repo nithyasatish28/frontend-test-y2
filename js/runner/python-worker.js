@@ -54,6 +54,15 @@ def _exec(src, stdin_text, echo):
         sys.stdout, sys.stderr = old
     return ns, out.getvalue(), err
 
+# What a failed check says when the question doesn't word it itself. Never names the expected
+# value: for most questions that IS the answer, and Check on empty code would print it.
+def _not_right(got, reveal=False, want=None):
+    if reveal:
+        return f"Expected {want!r}, got {got!r}"
+    if got is None:
+        return "Not right yet. Your code gave nothing back.\n\u2192 Does it return a value?"
+    return f"Not right yet. Your code gave back {got!r}."
+
 def _strip_comments(src):
     return re.sub(r"(?m)^\s*#.*$|\s+#[^'\"\n]*$", "", src)
 
@@ -71,7 +80,7 @@ def __run(src, stdin_text, setup=""):
     ns, out, err = _exec(src, stdin_text, True)
     return json.dumps({"out": out, "err": err})
 
-def __check(src, stdin_text, setup, tests_json):
+def __check(src, stdin_text, setup, tests_json, reveal=False):
     tests = json.loads(tests_json)
     _prelude(setup)
     ns, out, err = _exec(src, stdin_text, False)
@@ -103,19 +112,19 @@ def __check(src, stdin_text, setup, tests_json):
                     want = eval(exp, env) if exp.strip() else None
                     ok = got == want
                     if not ok and not msg:
-                        why = f"Expected {want!r}, got {got!r}"
+                        why = _not_right(got, reveal, want)
                 elif op == "includes":
                     ok = str(exp) in str(got)
                     if not ok and not msg:
-                        why = f"Expected it to contain {exp!r}. Got {got!r}"
+                        why = _not_right(got, reveal, exp)
                 elif op == "matches":
                     ok = re.search(exp, str(got)) is not None
                     if not ok and not msg:
-                        why = f"Expected it to match /{exp}/. Got {got!r}"
+                        why = _not_right(got, reveal, exp)
                 else:
                     ok = bool(got)
                     if not ok and not msg:
-                        why = f"Got {got!r}"
+                        why = _not_right(got, reveal, None)
                 if not ok and msg:
                     why = msg.replace("{got}", repr(got))
                 if not ok and err:
@@ -137,12 +146,12 @@ const ready = (async () => {
 })().catch(e => { self.postMessage({ type: "failed", error: String(e && e.message || e) }); throw e; });
 
 self.onmessage = async e => {
-  const { id, kind, code, stdin, setup, tests } = e.data;
+  const { id, kind, code, stdin, setup, tests, reveal } = e.data;
   try {
     await ready;
     const res = kind === "run"
       ? py.globals.get("__run")(code, stdin || "", setup || "")
-      : py.globals.get("__check")(code, stdin || "", setup || "", JSON.stringify(tests || []));
+      : py.globals.get("__check")(code, stdin || "", setup || "", JSON.stringify(tests || []), !!reveal);
     self.postMessage({ id, ok: true, result: JSON.parse(res) });
   } catch (err) {
     self.postMessage({ id, ok: false, error: String(err && err.message || err) });

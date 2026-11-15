@@ -80,27 +80,71 @@ export async function create(role) {
     onAuth(cb) { authCbs.add(cb); setTimeout(() => cb(user), 0); return () => authCbs.delete(cb); },
     async signOut() { setUser(null); },
 
-    async studentSignIn() { await later(); const id = "u" + randomId(10); setUser({ uid: id, email: null }); return id; },
+    async studentSignIn() { await later(); const id = "u" + randomId(10); setUser({ uid: id, email: null, emailVerified: false }); return id; },
     async adminSignIn(email, password) {
       await later(); load();
       const hit = Object.entries(db.docs).find(([k, v]) => k.startsWith("_auth/") && v.email === email.trim().toLowerCase());
       if (!hit || hit[1].password !== password) throw fail("Wrong email or password. (Demo: demo@example.com / demo1234)");
       const id = hit[0].slice(6);
-      setUser({ uid: id, email: hit[1].email });
+      setUser({ uid: id, email: hit[1].email, emailVerified: hit[1].verified !== false });
       return id;
     },
     async adminResetPassword() { throw fail("Demo mode can’t send emails. The demo login is demo@example.com / demo1234."); },
+
+    /* ─────────── Becoming an instructor ─────────── */
+    // No emails in demo mode, so the verification link is skipped: a new account is treated as
+    // verified straight away. Everything after that works exactly as it does on Firebase.
+    async adminSignUp(email, password) {
+      return write(() => {
+        const mail = email.trim().toLowerCase();
+        if (Object.entries(db.docs).some(([k, v]) => k.startsWith("_auth/") && v.email === mail)) {
+          throw fail("That email already has an account. Log in instead.");
+        }
+        const id = "a" + randomId(10);
+        set("_auth/" + id, { email: mail, password, verified: true });
+        setTimeout(() => setUser({ uid: id, email: mail, emailVerified: true }), 0);
+        return id;
+      });
+    },
+    async resendVerification() { throw fail("Demo mode can’t send emails: your account is already verified."); },
+    async refreshUser() { load(); return user; },
+    async requestAccess(name) {
+      if (!user) throw fail("You’re not signed in any more. Log in and try again.");
+      return write(() => set("pendingAdmins/" + user.uid, { uid: user.uid, email: user.email, name: name.trim(), askedAt: Date.now() }));
+    },
+    async getRequest(id) { load(); return clone(get("pendingAdmins/" + id)); },
+    async cancelRequest(id) { return write(() => del("pendingAdmins/" + id)); },
+    watchRequest: (id, cb) => watch(() => get("pendingAdmins/" + id), cb),
+    watchRequests: cb => watch(() => col("pendingAdmins"), cb),
+    watchAdmins: cb => watch(() => col("admins"), cb),
+    async approveRequest(r) {
+      return write(() => {
+        set("admins/" + r.uid, { email: r.email, name: r.name || r.email });
+        del("pendingAdmins/" + r.uid);
+      });
+    },
+    async removeAdmin(id) { return write(() => del("admins/" + id)); },
     async hasOwner() { load(); return !!db.docs["meta/owner"]; },
+    async ownerUid() { load(); return db.docs["meta/owner"]?.uid ?? null; },
     async isAdmin(id) { load(); return !!db.docs["admins/" + id]; },
-    async adminCreateOwner(email, password, name) {
+    async adminRole(id) {
+      load();
+      const mine = db.docs["admins/" + id];
+      if (!mine) return null;
+      if (mine.role === "super") return "super";
+      const owner = db.docs["meta/owner"];
+      return owner && owner.uid === id ? "super" : "instructor";
+    },
+    async setRole(id, role) { return write(() => set("admins/" + id, { role }, true)); },
+    async adminCreateOwner(name) {
+      if (!user) throw fail("You’re not signed in any more. Log in and try again.");
       return write(() => {
         if (db.docs["meta/owner"]) throw fail("There’s already an instructor account.");
-        const id = "a" + randomId(10);
-        set("_auth/" + id, { email: email.trim().toLowerCase(), password });
-        set("meta/owner", { uid: id, email }); set("admins/" + id, { email, name });
+        set("meta/owner", { uid: user.uid, email: user.email });
+        set("admins/" + user.uid, { email: user.email, name, role: "super" });
         set("settings/app", { activeSessionId: null }, true);
-        setTimeout(() => setUser({ uid: id, email }), 0);
-        return id;
+        setTimeout(() => authCbs.forEach(cb => cb(user)), 0);
+        return user.uid;
       });
     },
 

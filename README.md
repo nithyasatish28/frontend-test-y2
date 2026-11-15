@@ -40,7 +40,7 @@ Questions → *Add a starter set* is already done for you in the demo. Make a se
      ```
      Your site is `https://<project-id>.web.app`.
    - or **GitHub Pages / any static host**, like the old version. Then add that domain in Authentication → Settings → **Authorized domains**.
-7. Open **`admin.html`** on your site. The first time it shows **Set up**: create your instructor account (your real email, so you can reset the password). Do this straight away — only the first account becomes the instructor.
+7. Open **`admin.html`** on your site. The first time it shows **Set up**: make your instructor account with your **@atriauniversity.edu.in** email. Firebase emails you a link; open it, come back, and press *I've done that*. You become the instructor. Do this straight away — the first account is the only one that lets itself in.
 
 ## 3. Running a class
 
@@ -51,7 +51,8 @@ Questions → *Add a starter set* is already done for you in the demo. Make a se
 5. **Live** shows who has joined. Press **Start the test** (twice, to confirm). Everyone's test opens at once and the timer is the same for all.
 6. Watch the grid fill in. Click a student to see exactly what they answered. **+5 minutes** and **End the test now** work for everyone instantly. When time runs out, every open test submits itself.
 7. **Download scores** or **Download all answers** (CSV, opens in Excel/Sheets).
-8. Every session stays in **Sessions** — open any of them later to see the results again. For the next class, make a new session and share its new link.
+8. **Re-grade & verify** (next to the download buttons) marks every answer again from what the students actually typed and lists anything that disagrees with the mark their browser saved. Worth a look after every test: it is what catches a faked score. Once the test has ended you can apply the corrections in one press. Tick *Re-run code tests too* to re-run each student's saved code as well — thorough, but slow.
+9. Every session stays in **Sessions** — open any of them later to see the results again. For the next class, make a new session and share its new link.
 
 **Tips**
 - **The link closes when the test is over.** Students who are still on the page see their score for 10 minutes after the end; after that the link shows “This test link is closed” to everyone, so it can’t be passed on to the next batch.
@@ -59,7 +60,37 @@ Questions → *Add a starter set* is already done for you in the demo. Make a se
 - Anyone with the link can join under any name, so share it only with the class. Two students typing the same name show up as two separate rows.
 - If a student’s test went wrong, open them in the session and press **Clear this student’s attempt**: they start again from empty (if the test is still open).
 - **Forgotten instructor password**: “Forgot the password?” on the login screen emails a reset link.
-- **Another instructor**: they need an account first — Firebase console → Authentication → *Add user* (their email and a password) → copy their **User UID** → Firestore → *Start collection* `admins` (if needed) → *Add document* with Document ID = that UID, fields `email` and `name`.
+- **Another instructor**: they do it themselves now. On `admin.html` they press *Create an instructor account*, use their **@atriauniversity.edu.in** email, open the link Firebase sends them, and ask to be let in. You approve them on the **Instructors** tab — the tab shows a count when someone is waiting. Until you approve, they can't see a single question, answer or score. You can also remove an instructor there (but not yourself).
+
+## 3a. Who can be an instructor
+
+Instructors sign themselves up, with three gates in the way:
+
+1. **The email domain.** Only `@atriauniversity.edu.in` addresses. Set in two places that must agree: `INSTRUCTOR_EMAIL_DOMAIN` in `js/config.js` (for the message on screen) and `workEmail()` in `firestore.rules` (which is the one that actually enforces it). Change both, then publish the rules again.
+2. **The email itself.** They have to open the link Firebase sends, so only someone who can read that mailbox gets in. A made-up address on the right domain gets nowhere.
+3. **The super admin.** One person approves every request, on the **Instructors** tab. Not any instructor — only the super admin.
+
+Gate 3 is there because at most universities students have an address on the same domain as staff. Without it, any student could make themselves an instructor and read every answer. If your students are on a *different* domain and you'd rather skip approval, change the `pendingAdmins` rule in `firestore.rules` so a verified work email may write its own `admins/{uid}` document, and have `login.js` call that instead of `requestAccess()`.
+
+Anyone can still make a Firebase account with any email — that is just a login, and it gets them exactly what a student with no link gets: nothing.
+
+### The super admin
+
+**The first account you set up is the super admin.** There is nothing to create: if you already set this app up, your account is it, and you don't need to change anything in Firestore. You can check which one it is in the Firebase console → Firestore → `meta/owner`.
+
+Only the super admin can:
+
+- let a new instructor in, or decline them (nobody else can even see the waiting list)
+- remove an instructor
+- make another instructor a super admin, or take that back
+
+Everyone else is an ordinary instructor: they get **Live**, **Sessions** and **Questions**, and that is all. There is no Instructors tab for them, and the rules refuse them the list as well, so they never see another instructor's name or email address — not in the page, and not through the browser console either.
+
+Sessions and question sets stay shared by everyone, as they always were: any instructor can run a test or edit a set.
+
+**Make a second super admin.** If you are the only one and you lose your account, nobody can ever approve anyone again. On the **Instructors** tab, press *Make super admin* next to someone you trust with the whole app. Nobody can change their own role, so you cannot lock yourself out by accident.
+
+**Handing it over** (leaving, or changing email): make the new person a super admin first, then they remove your account. If you have already lost access to the only super admin account, recover it in the Firebase console: Firestore → `admins` → the document whose id matches the person you want → add a field `role` with the value `super`.
 
 ## 4. Writing questions
 
@@ -94,7 +125,13 @@ Python runs in the student's browser (Pyodide). For Python questions the hidden 
 ## 5. Good to know
 
 - **Free plan limits.** Firebase's free (Spark) plan allows 20,000 writes and 50,000 reads a day. As a rough guide, a 45-minute test with 60 students uses several thousand writes (answers plus a once-a-minute “still here” signal), so a few classes a day fit. Usage is shown in the Firebase console; the pay-as-you-go plan costs very little at this size.
-- **How cheat-proof it is.** Answers are checked in the student's browser, as before: multiple-choice and blank answers are only sent as salted hashes, and the database rules stop students from reading other students' answers, opening a session’s link after it closes, changing their answers after they submit, or saving after the time limit (plus 3 minutes' grace). A student who knows browser developer tools could still fake their own score. For high-stakes exams you'd want checking on a server (Firebase Cloud Functions, which needs the pay-as-you-go plan).
+- **How cheat-proof it is.** Answers are checked in the student's browser, as before: multiple-choice and blank answers are only sent as salted hashes, and the database rules stop students from reading other students' answers, opening a session’s link after it closes, changing their answers after they submit, or saving after the time limit (plus 3 minutes' grace).
+
+  Two things worth being clear about.
+
+  **A faked mark can be found afterwards.** A student who knows browser developer tools can write a “correct” mark for their own answer. But what they typed is saved too, and the session keeps the answer keys — so **Re-grade & verify** in the session marks everything again and shows you where the saved mark disagrees. Use it after every test. (Hints can't be checked this way, and a code answer that passed and was then edited is honestly ambiguous — both are reported as “couldn't be checked” rather than guessed at.)
+
+  **The hashes are not a lock.** They keep answers out of casual view, but the session's salt sits on the session itself — the browser needs it to mark anything at all — so a multiple-choice answer, one of at most eight options, can be worked out by trying each one. Re-grading cannot see that happen: the student really did pick the right option. Free-text blanks are much harder, and code tests ship as plain text by design. For a high-stakes exam, mark on a server (Firebase Cloud Functions, which needs the pay-as-you-go plan).
 - **Old results**: Sessions → **Import old results** brings in the latest class straight from the old Google Sheet (old web app URL + admin key), or older classes from the CSV files the old admin page downloaded. Each one appears as a past session. Do this after Firebase is set up, so they're saved to your account.
 
 ## How it's built
@@ -111,8 +148,11 @@ js/runner/                 runs and checks code: js.js (JS + React), python.js +
 js/ui/                     question.js (draws a question for students and previews), editor.js (code editor)
 js/student/                app.js (login → session), test.js (waiting room, test, saving, timer), login.js, gate.js
 js/admin/                  app.js (login + tabs), session-view.js (Live), sessions.js, sets.js,
-                           set-editor.js (question editor), students.js, login.js, dialog.js
+                           set-editor.js (question editor), regrade.js (marks every answer again),
+                           instructors.js (who can get in), csv-questions.js, import-old.js,
+                           login.js (login, signing up, approval), dialog.js
 js/data/starter-sets.js    the two starter sets
+vendor/                    React, React DOM and Babel, kept here instead of loaded from a CDN
 firestore.rules            database security rules (paste into Firebase)
 firebase.json              settings for `firebase deploy`
 ```

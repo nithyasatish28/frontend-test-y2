@@ -56,9 +56,9 @@ export async function runPython(q, code, { log, stdin, onLoading }) {
   } catch (e) { log("err", e.message); }
 }
 
-export async function checkPython(q, code, tests = q.tests || [], onLoading) {
+export async function checkPython(q, code, tests = q.tests || [], onLoading, reveal = false) {
   try {
-    const r = await call({ kind: "check", code, stdin: q.stdin || "", setup: q.setup || "", tests }, onLoading);
+    const r = await call({ kind: "check", code, stdin: q.stdin || "", setup: q.setup || "", tests, reveal }, onLoading);
     return r.results;
   } catch (e) {
     return tests.map(t => ({ name: t.name || t.expr, pass: false, why: e.message }));

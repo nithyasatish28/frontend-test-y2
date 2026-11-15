@@ -18,10 +18,12 @@ export async function runCode(q, code, { log, previewHost, stdin, onLoading } = 
 }
 
 // Returns [{ name, pass, why }] — one per test.
-export async function checkCode(q, code, { tests, onLoading } = {}) {
+// reveal: say what the test expected when it fails. Only for the question editor — the person
+// who wrote the answer already knows it. A student's failed check never names the expected value.
+export async function checkCode(q, code, { tests, onLoading, reveal = false } = {}) {
   if (q.lang === "terminal") return checkTerminal(q, code);
-  if (q.lang === "python") return checkPython(q, code, tests || q.tests, onLoading);
-  return checkJs(q, code, tests || q.tests);
+  if (q.lang === "python") return checkPython(q, code, tests || q.tests, onLoading, reveal);
+  return checkJs(q, code, tests || q.tests, reveal);
 }
 
 // The checks a question will run, before they run (for the list under the editor).

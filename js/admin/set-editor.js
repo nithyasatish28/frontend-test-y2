@@ -381,7 +381,7 @@ export function mount(view, ctx, setId) {
       if (!q.tests.length) { note.textContent = "Add a test first."; return; }
       btn.disabled = true; note.textContent = q.lang === "python" ? "Running (Python takes a few seconds the first time)…" : "Running…";
       const pq = publishQuestion({ ...labelled().find(x => x.id === q.id) }, "editor");
-      const res = await checkCode(pq, q[which] || "", { tests: q.tests });
+      const res = await checkCode(pq, q[which] || "", { tests: q.tests, reveal: true });
       const passed = res.filter(r => r.pass).length;
       note.textContent = which === "solution"
         ? (passed === res.length ? `All ${res.length} pass on the model answer.` : `${passed} of ${res.length} pass on the model answer. Fix the tests or the answer.`)

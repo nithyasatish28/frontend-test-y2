@@ -26,23 +26,72 @@ service cloud.firestore {
     }
     function goodName(d) { return d.name is string && d.name.size() > 0 && d.name.size() <= 60; }
 
+    // Instructors must use a work email address, and must have clicked the link in the
+    // verification email, so only someone who can read that mailbox can ever become one.
+    // Change the domain here AND in js/config.js, then publish the rules again.
+    function workEmail() {
+      return request.auth.token.email is string
+        && request.auth.token.email.lower().matches('^[^@]+@atriauniversity[.]edu[.]in$');
+    }
+    function verified() { return request.auth.token.email_verified == true; }
+
+    // The super admin: the only person who can let a new instructor in, remove one, or hand the
+    // role on. It is the first account set up (meta/owner), plus anyone it has marked
+    // role: 'super'. The meta/owner half means an app set up before this rule existed still has
+    // a super admin without anything being migrated.
+    function isSuper() {
+      return isAdmin() && (
+           (exists(/databases/$(db)/documents/meta/owner)
+             && get(/databases/$(db)/documents/meta/owner).data.uid == request.auth.uid)
+        || get(/databases/$(db)/documents/admins/$(request.auth.uid)).data.get('role', '') == 'super');
+    }
+    function goodRole(d) {
+      return d.get('role', 'instructor') == 'super' || d.get('role', 'instructor') == 'instructor';
+    }
+    // The same domain, checked on a document being written rather than on the sign-in.
+    function workEmailField(d) {
+      return d.email is string && d.email.lower().matches('^[^@]+@atriauniversity[.]edu[.]in$');
+    }
+
     // One-time setup: the first instructor account.
     match /meta/owner {
       allow get: if true;
-      allow create: if signedIn()
+      allow create: if signedIn() && workEmail() && verified()
         && request.resource.data.uid == request.auth.uid
         && existsAfter(/databases/$(db)/documents/admins/$(request.auth.uid));
       allow update, delete: if false;
     }
 
     match /admins/{uid} {
-      allow get: if (signedIn() && request.auth.uid == uid) || isAdmin();
-      allow list: if isAdmin();
-      allow create: if isAdmin()
-        || (signedIn() && uid == request.auth.uid
+      // Your own row, so the app can tell what you are. The roster — who else is an instructor,
+      // and their email addresses — is the super admin's business only.
+      allow get: if (signedIn() && request.auth.uid == uid) || isSuper();
+      allow list: if isSuper();
+      // Either an instructor approving someone, or the very first account setting itself up.
+      // Both ways the address has to be a work address.
+      allow create: if workEmailField(request.resource.data) && goodRole(request.resource.data) && (
+           isSuper()
+        || (signedIn() && uid == request.auth.uid && workEmail() && verified()
             && !exists(/databases/$(db)/documents/meta/owner)
-            && getAfter(/databases/$(db)/documents/meta/owner).data.uid == request.auth.uid);
-      allow update, delete: if isAdmin() && uid != request.auth.uid;
+            && getAfter(/databases/$(db)/documents/meta/owner).data.uid == request.auth.uid));
+      // Changing a role, or removing an instructor: the super admin, and never on themselves,
+      // so the last super admin can't lock everybody out by accident.
+      allow update: if isSuper() && uid != request.auth.uid
+        && workEmailField(request.resource.data) && goodRole(request.resource.data);
+      allow delete: if isSuper() && uid != request.auth.uid;
+    }
+
+    // Someone with a verified work email asking to be made an instructor. They can write their
+    // own request and take it back; only an instructor can read the list or act on it.
+    match /pendingAdmins/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isSuper());
+      allow list: if isSuper();
+      allow create: if signedIn() && request.auth.uid == uid
+        && workEmail() && verified()
+        && request.resource.data.email == request.auth.token.email
+        && goodName(request.resource.data);
+      allow update: if false;
+      allow delete: if isSuper() || (signedIn() && request.auth.uid == uid);
     }
 
     // Which session the Live tab shows.

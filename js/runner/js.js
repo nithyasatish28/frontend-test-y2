@@ -30,6 +30,12 @@ export function friendly(e) {
   return `${name}: ${msg}`;
 }
 
+// What a failed check says when the question doesn't word it itself. Deliberately says nothing
+// about the expected value — see the note where it's used.
+const notRight = got =>
+  got === undefined ? "Not right yet. Your code gave nothing back.\n→ Does it return a value?"
+    : `Not right yet. Your code gave back ${fmt(got)}.`;
+
 export const stripComments = code => code.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`\\])\/\/.*$/gm, "$1").replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, "");
 
 function addLoopGuards(code) {
@@ -113,7 +119,7 @@ function mockFetch(reply, calls) {
   };
 }
 
-export async function checkJs(q, code, tests = q.tests || []) {
+export async function checkJs(q, code, tests = q.tests || [], reveal = false) {
   const react = q.lang === "react";
   const logs = [], mounted = [];
   let fetchImpl = url => new Promise(() => {});
@@ -184,10 +190,12 @@ export async function checkJs(q, code, tests = q.tests || []) {
         else if (op === "matches") pass = new RegExp(t.expected).test(fmt(got, true));
         else if (op === "truthy") pass = !!got;
         if (!pass) {
-          why = t.msg ? t.msg.replace(/\{got\}/g, fmt(got)) :
-            op === "equals" ? `Expected ${fmt(want)}, got ${fmt(got)}` :
-            op === "includes" ? `Expected it to contain “${t.expected}”. Got ${fmt(got)}` :
-            op === "matches" ? `Expected it to match /${t.expected}/. Got ${fmt(got)}` : `Got ${fmt(got)}`;
+          // Never print what was expected: for most questions that IS the answer, and a student
+          // only has to press Check on empty code to read it. What they get back is the half that
+          // helps them debug. A question can still say more of its own with msg (and {got}).
+          why = t.msg ? t.msg.replace(/\{got\}/g, fmt(got))
+            : reveal ? `Expected ${fmt(op === "equals" ? want : t.expected)}, got ${fmt(got)}`
+            : notRight(got);
         }
       }
     } catch (e) { why = friendly(e); }

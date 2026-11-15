@@ -53,6 +53,7 @@ export async function create(role) {
     return v;
   };
   const data = snap => (snap.exists() ? { id: snap.id, ...plain(snap.data()) } : null);
+  const me = u => ({ uid: u.uid, email: u.email, emailVerified: !!u.emailVerified });
   const list = snap => snap.docs.map(data);
   const watchDoc = (ref, cb) => F.onSnapshot(ref, s => cb(data(s)), e => cb(null, friendlyError(e)));
   const watchCol = (q, cb) => F.onSnapshot(q, s => cb(list(s)), e => cb([], friendlyError(e)));
@@ -70,7 +71,7 @@ export async function create(role) {
     serverNow: () => Date.now() + offset,
 
     /* ─────────── Auth ─────────── */
-    onAuth(cb) { return AU.onAuthStateChanged(auth, u => cb(u ? { uid: u.uid, email: u.email } : null)); },
+    onAuth(cb) { return AU.onAuthStateChanged(auth, u => cb(u ? me(u) : null)); },
     signOut: () => AU.signOut(auth),
 
     // Students only type a name. Behind the scenes they get a nameless Firebase login,
@@ -78,17 +79,71 @@ export async function create(role) {
     studentSignIn: wrap(async () => (await AU.signInAnonymously(auth)).user.uid),
 
     adminSignIn: wrap(async (email, password) => (await AU.signInWithEmailAndPassword(auth, email.trim(), password)).user.uid),
+
+    /* ─────────── Becoming an instructor ─────────── */
+    // Anyone can make an account; it is worth nothing on its own. Only a verified work address
+    // can ask for access, and only an instructor can grant it (see firestore.rules).
+    adminSignUp: wrap(async (email, password) => {
+      const cred = await AU.createUserWithEmailAndPassword(auth, email.trim(), password);
+      await AU.sendEmailVerification(cred.user);
+      return cred.user.uid;
+    }),
+    resendVerification: wrap(async () => {
+      if (!auth.currentUser) throw fail("You’re not signed in any more. Log in and try again.");
+      await AU.sendEmailVerification(auth.currentUser);
+    }),
+    // After the link in the email is clicked, the token still says unverified until it is
+    // refreshed — the rules read the token, so this has to happen before asking for access.
+    refreshUser: wrap(async () => {
+      const u = auth.currentUser;
+      if (!u) return null;
+      await AU.reload(u);
+      await u.getIdToken(true);
+      return me(auth.currentUser);
+    }),
+    requestAccess: wrap(async name => {
+      const u = auth.currentUser;
+      if (!u) throw fail("You’re not signed in any more. Log in and try again.");
+      await F.setDoc(d("pendingAdmins", u.uid), { uid: u.uid, email: u.email, name: name.trim(), askedAt: F.serverTimestamp() });
+    }),
+    getRequest: wrap(async id => data(await F.getDoc(d("pendingAdmins", id)))),
+    cancelRequest: wrap(id => F.deleteDoc(d("pendingAdmins", id))),
+    watchRequest: (id, cb) => watchDoc(d("pendingAdmins", id), cb),
+    watchRequests: cb => watchCol(c("pendingAdmins"), cb),
+    watchAdmins: cb => watchCol(c("admins"), cb),
+    approveRequest: wrap(async r => {
+      const b = F.writeBatch(db);
+      b.set(d("admins", r.uid), { email: r.email, name: r.name || r.email });
+      b.delete(d("pendingAdmins", r.uid));
+      await b.commit();
+    }),
+    removeAdmin: wrap(id => F.deleteDoc(d("admins", id))),
     adminResetPassword: wrap(email => AU.sendPasswordResetEmail(auth, email.trim())),
     hasOwner: wrap(async () => (await F.getDoc(d("meta", "owner"))).exists()),
+    ownerUid: wrap(async () => { const o = await F.getDoc(d("meta", "owner")); return o.exists() ? o.get("uid") : null; }),
     isAdmin: wrap(async id => (await F.getDoc(d("admins", id))).exists()),
-    adminCreateOwner: wrap(async (email, password, name) => {
-      const cred = await AU.createUserWithEmailAndPassword(auth, email.trim(), password);
+    // "super" · "instructor" · null. The first account (meta/owner) is always super, so a
+    // database set up before roles existed still has one without being migrated.
+    adminRole: wrap(async id => {
+      const mine = await F.getDoc(d("admins", id));
+      if (!mine.exists()) return null;
+      if (mine.get("role") === "super") return "super";
+      const owner = await F.getDoc(d("meta", "owner"));
+      return owner.exists() && owner.get("uid") === id ? "super" : "instructor";
+    }),
+    setRole: wrap((id, role) => F.updateDoc(d("admins", id), { role })),
+    // The first instructor, written once they have clicked the link in their email. The rules
+    // only allow this while there is no owner yet, so it can happen exactly once.
+    adminCreateOwner: wrap(async name => {
+      const u = auth.currentUser;
+      if (!u) throw fail("You’re not signed in any more. Log in and try again.");
+      if (!u.emailVerified) throw fail("Click the link in the email first, then press “I’ve done that”.");
       const b = F.writeBatch(db);
-      b.set(d("meta", "owner"), { uid: cred.user.uid, email: email.trim() });
-      b.set(d("admins", cred.user.uid), { email: email.trim(), name: name.trim() });
+      b.set(d("meta", "owner"), { uid: u.uid, email: u.email });
+      b.set(d("admins", u.uid), { email: u.email, name: name.trim(), role: "super" });
       await b.commit();
       await F.setDoc(d("settings", "app"), { activeSessionId: null }, { merge: true });
-      return cred.user.uid;
+      return u.uid;
     }),
 
     /* ─────────── Settings ─────────── */
