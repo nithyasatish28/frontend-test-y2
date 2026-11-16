@@ -22,6 +22,11 @@ function start() {
       // A package download is not the program running, so the 8-second guard is paused for it.
       if (m.type === "progress") {
         clearTimeout(p.timer);
+        if (m.phase === "packages-failed") {
+          p.note?.(`Couldn’t load ${m.names.join(", ")}: ${m.error || "the download failed"}.\n→ Check the internet connection. If it keeps happening, the library may not be available in the browser.`);
+          p.timer = setTimeout(() => { pending.delete(m.id); restart(); p.rej(runawayError()); }, TIMEOUT);
+          return;
+        }
         if (m.phase === "packages") {
           p.note?.(`Loading ${m.names.join(", ")}… (the first time takes a while)`);
           p.timer = setTimeout(() => { pending.delete(m.id); restart(); p.rej(new Error("Loading " + m.names.join(", ") + " took too long. Check the internet connection and try again.")); }, DOWNLOAD_TIMEOUT);

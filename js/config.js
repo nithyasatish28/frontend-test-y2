@@ -27,7 +27,9 @@ export const INSTRUCTOR_EMAIL_DOMAIN = "atriauniversity.edu.in";
 
 // Library versions loaded from CDNs. Change only if you know you need to.
 export const FIREBASE_VERSION = "13.1.0";
-export const PYODIDE_URL = "https://cdn.jsdelivr.net/npm/pyodide@314.0.7/";
+// The full distribution, not the npm package: npm ships the Python runtime but none of the
+// package wheels, so `import pandas` would 404. This URL serves both.
+export const PYODIDE_URL = "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/";
 
 // Demo mode is on with ?demo in the address, or when Firebase hasn't been filled in yet.
 // The ?demo is accepted after the # as well — admin.html#/sessions?demo — because that is an

@@ -166,8 +166,10 @@ async function fetchPackages(src, id) {
   try {
     await py.loadPackagesFromImports(src);
   } catch (err) {
-    // Not every import is a package — a question's own fake module, say. Running will say so.
-    self.postMessage({ type: "progress", id, phase: "packages-failed", names: wanted });
+    // Say so out loud. Swallowing this once turned a failed download into a baffling
+    // "No module named 'pandas'" from the test setup, with nothing pointing at the cause.
+    self.postMessage({ type: "progress", id, phase: "packages-failed", names: wanted,
+                       error: String((err && err.message) || err) });
   }
   wanted.forEach(n => loaded.add(n));
   self.postMessage({ type: "progress", id, phase: "running" });
