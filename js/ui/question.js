@@ -195,7 +195,7 @@ function code(ctx) {
     list.forEach(li => { li.className = "wait"; li.firstElementChild.textContent = "…"; li.querySelector(".why")?.remove(); });
     const src = ed.value;
     entry.code = src;
-    const res = await checkCode(q, src, { onLoading: () => { con.innerHTML = ""; onLoading(); } });
+    const res = await checkCode(q, src, { onLoading: () => { con.innerHTML = ""; onLoading(); }, onNote: msg => log("info", msg) });
     res.forEach((r, i) => {
       const li = list[i]; if (!li) return;
       li.className = r.pass ? "pass" : "fail"; li.firstElementChild.textContent = r.pass ? "✓" : "✗";

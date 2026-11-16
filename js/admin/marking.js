@@ -35,6 +35,20 @@ export function markingDialog(ctx, sid, session, rows, { canMark = false } = {})
   const eligible = rows.filter(r => canMark || r.status === "submitted");
   const waiting = rows.length - eligible.length;
 
+  // The marking notes are deliberately NOT in the session — publishQuestion strips them so a
+  // student's browser can never receive them. They live on the question set the session was
+  // made from, which only instructors can read, so they are fetched from there.
+  let notes = {}, touched = false;
+  (async () => {
+    if (!session.setId) return;
+    try {
+      const original = await store.getSet(session.setId);
+      if (!original) return;
+      notes = Object.fromEntries((original.questions || []).map(x => [x.id, x.expected || ""]));
+      if (!touched && qs.length) draw();        // redraw quietly, unless marking has started
+    } catch { /* the set may have been deleted: mark without the notes */ }
+  })();
+
   const draw = () => {
     const q = qs[qi];
     const full = qPoints(q, session);
@@ -47,7 +61,7 @@ export function markingDialog(ctx, sid, session, rows, { canMark = false } = {})
         ${answered.length} answered · <b>${left}</b> still to mark${waiting ? ` · ${waiting} student${waiting === 1 ? "" : "s"} haven’t finished` : ""}</p>
       <div class="markq">
         <div class="prompt">${esc(q.prompt || "")}</div>
-        ${q.expected ? `<details class="notes" open><summary>Your marking notes</summary><div>${esc(q.expected)}</div></details>` : ""}
+        ${notes[q.id] ? `<details class="notes" open><summary>Your marking notes</summary><div>${esc(notes[q.id])}</div></details>` : ""}
       </div>
       <div class="marklist">${answered.length ? answered.map(r => row(r, q, full)).join("") : `<p class="empty">Nobody has written anything for this one.</p>`}</div>`;
 
@@ -91,6 +105,7 @@ export function markingDialog(ctx, sid, session, rows, { canMark = false } = {})
   const save = async (inp, q, full) => {
     const rowEl = inp.closest(".markrow"), uid = rowEl.dataset.uid;
     const state = rowEl.querySelector("[data-state]");
+    touched = true;
     const raw = inp.value.trim();
     if (raw === "") return;
     const awarded = Number(raw);

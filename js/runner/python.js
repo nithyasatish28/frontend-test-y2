@@ -7,6 +7,7 @@
 //     run("3\n4")   run the whole program again with this input, and get what it printed
 //     SOURCE   the student's code
 const TIMEOUT = 8000;
+const DOWNLOAD_TIMEOUT = 180000;   // fetching pandas on college wifi is not a runaway loop
 let worker = null, ready = null, seq = 0;
 const pending = new Map();
 
@@ -18,6 +19,17 @@ function start() {
       if (m.type === "ready") return res();
       if (m.type === "failed") return rej(new Error("Python didn’t load. Check the internet connection and refresh. (" + m.error + ")"));
       const p = pending.get(m.id); if (!p) return;
+      // A package download is not the program running, so the 8-second guard is paused for it.
+      if (m.type === "progress") {
+        clearTimeout(p.timer);
+        if (m.phase === "packages") {
+          p.note?.(`Loading ${m.names.join(", ")}… (the first time takes a while)`);
+          p.timer = setTimeout(() => { pending.delete(m.id); restart(); p.rej(new Error("Loading " + m.names.join(", ") + " took too long. Check the internet connection and try again.")); }, DOWNLOAD_TIMEOUT);
+        } else {
+          p.timer = setTimeout(() => { pending.delete(m.id); restart(); p.rej(runawayError()); }, TIMEOUT);
+        }
+        return;
+      }
       pending.delete(m.id); clearTimeout(p.timer);
       m.ok ? p.res(m.result) : p.rej(new Error(m.error));
     };
@@ -29,7 +41,9 @@ const restart = () => { try { worker.terminate(); } catch {} worker = null; read
 export const pythonReady = () => (worker ? ready : null);
 export function warmUpPython() { if (!worker) start(); return ready; }
 
-async function call(msg, onLoading) {
+const runawayError = () => new Error(`Your program ran for more than ${TIMEOUT / 1000} seconds, so it was stopped.\n→ Is there a loop that never ends, or an input() waiting for more input?`);
+
+async function call(msg, onLoading, onNote) {
   if (!worker) start();
   let loaded = false;
   ready.then(() => { loaded = true; }, () => {});
@@ -38,27 +52,24 @@ async function call(msg, onLoading) {
   await ready;
   const id = ++seq;
   return new Promise((res, rej) => {
-    const timer = setTimeout(() => {
-      pending.delete(id); restart();
-      rej(new Error(`Your program ran for more than ${TIMEOUT / 1000} seconds, so it was stopped.\n→ Is there a loop that never ends, or an input() waiting for more input?`));
-    }, TIMEOUT);
-    pending.set(id, { res, rej, timer });
+    const timer = setTimeout(() => { pending.delete(id); restart(); rej(runawayError()); }, TIMEOUT);
+    pending.set(id, { res, rej, timer, note: onNote });
     worker.postMessage({ id, ...msg });
   });
 }
 
 export async function runPython(q, code, { log, stdin, onLoading }) {
   try {
-    const r = await call({ kind: "run", code, stdin: stdin ?? q.stdin ?? "", setup: q.setup || "" }, onLoading);
+    const r = await call({ kind: "run", code, stdin: stdin ?? q.stdin ?? "", setup: q.setup || "" }, onLoading, msg => log("info", msg));
     if (r.out) log("log", r.out.replace(/\n$/, ""));
     if (r.err) log("err", r.err);
     if (!r.out && !r.err) log("info", "(Nothing was printed.)");
   } catch (e) { log("err", e.message); }
 }
 
-export async function checkPython(q, code, tests = q.tests || [], onLoading, reveal = false) {
+export async function checkPython(q, code, tests = q.tests || [], onLoading, reveal = false, onNote) {
   try {
-    const r = await call({ kind: "check", code, stdin: q.stdin || "", setup: q.setup || "", tests, reveal }, onLoading);
+    const r = await call({ kind: "check", code, stdin: q.stdin || "", setup: q.setup || "", tests, reveal }, onLoading, onNote);
     return r.results;
   } catch (e) {
     return tests.map(t => ({ name: t.name || t.expr, pass: false, why: e.message }));

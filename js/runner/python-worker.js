@@ -145,10 +145,39 @@ const ready = (async () => {
   self.postMessage({ type: "ready" });
 })().catch(e => { self.postMessage({ type: "failed", error: String(e && e.message || e) }); throw e; });
 
+// Packages like pandas aren't in the base Python download — they're fetched the first time a
+// question actually imports them, then kept for the rest of the session. Modules that come with
+// Python need nothing, so they're skipped rather than looked up.
+const loaded = new Set();
+const STDLIB = new Set(["sys", "io", "json", "re", "math", "random", "datetime", "time", "string",
+  "collections", "itertools", "functools", "typing", "os", "copy", "decimal", "fractions",
+  "statistics", "textwrap", "pprint", "unittest", "abc", "enum", "dataclasses", "traceback", "csv"]);
+
+const importsIn = src => {
+  const names = new Set();
+  for (const m of String(src || "").matchAll(/^[ \t]*(?:import|from)[ \t]+([A-Za-z_][\w]*)/gm)) names.add(m[1]);
+  return [...names].filter(n => !STDLIB.has(n) && !loaded.has(n));
+};
+
+async function fetchPackages(src, id) {
+  const wanted = importsIn(src);
+  if (!wanted.length) return;
+  self.postMessage({ type: "progress", id, phase: "packages", names: wanted });
+  try {
+    await py.loadPackagesFromImports(src);
+  } catch (err) {
+    // Not every import is a package — a question's own fake module, say. Running will say so.
+    self.postMessage({ type: "progress", id, phase: "packages-failed", names: wanted });
+  }
+  wanted.forEach(n => loaded.add(n));
+  self.postMessage({ type: "progress", id, phase: "running" });
+}
+
 self.onmessage = async e => {
   const { id, kind, code, stdin, setup, tests, reveal } = e.data;
   try {
     await ready;
+    await fetchPackages(`${setup || ""}\n${code || ""}`, id);
     const res = kind === "run"
       ? py.globals.get("__run")(code, stdin || "", setup || "")
       : py.globals.get("__check")(code, stdin || "", setup || "", JSON.stringify(tests || []), !!reveal);
