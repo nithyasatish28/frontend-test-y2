@@ -49,3 +49,8 @@
 /* Written (subjective) answers: a plain box, and the wait while an instructor reads it. */
 textarea.written { font: inherit; line-height: 1.55; resize: vertical; min-height: 120px; }
 .result.wait { background: var(--wip); color: var(--wip-ink); }
+
+/* Written answers in the question list: green once handed in, a tick once marked. */
+.qb.sent { background: var(--good-soft); border-color: var(--good); color: var(--good); }
+.qb.marked::before { content: "\2713"; position: absolute; bottom: 0; right: 4px; font-size: .62rem; line-height: 1.2; font-weight: 700; color: var(--good); }
+.qb.wrong.marked::before { color: var(--bad); }

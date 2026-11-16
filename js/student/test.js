@@ -262,15 +262,33 @@ export class Test {
       for (const q of qs) {
         const e = this.A.q[q.id] || {}, b = document.createElement("button");
         b.type = "button"; b.textContent = q.label; b.title = q.title;
-        b.className = "qb" + (q.id === this.A.cur ? " now" : "") + (e.s === "c" ? " correct" : e.s === "w" ? " wrong" : "") + (e.h ? " hinted" : "");
-        b.setAttribute("aria-label", `${q.label}: ${q.title}${e.s === "c" ? ", correct" : e.s === "w" ? ", not correct" : ""}${e.h ? ", hint used" : ""}`);
+        // A written answer goes green once it is handed in, and gains a tick once it has been
+        // marked — by then the colour says how it went.
+        const marked = typeof e.awarded === "number";
+        const handed = q.type === "subjective" && (e.handed || this.A.status === "submitted");
+        let how = "", said = "";
+        if (q.type === "subjective") {
+          if (marked) {
+            const full = qPoints(q, s);
+            how = e.awarded >= full ? " correct" : e.awarded > 0 ? " sent" : " wrong";
+            said = `, marked ${fmtPts(e.awarded)} out of ${fmtPts(full)}`;
+          } else if (handed) { how = " sent"; said = ", handed in, waiting to be marked"; }
+        } else {
+          how = e.s === "c" ? " correct" : e.s === "w" ? " wrong" : "";
+          said = e.s === "c" ? ", correct" : e.s === "w" ? ", not correct" : "";
+        }
+        b.className = "qb" + (q.id === this.A.cur ? " now" : "") + how + (marked ? " marked" : "") + (e.h ? " hinted" : "");
+        b.setAttribute("aria-label", `${q.label}: ${q.title}${said}${e.h ? ", hint used" : ""}`);
         b.addEventListener("click", () => this.openQ(q.id));
         g.append(b);
       }
       box.append(g);
     }
     const lg = document.createElement("div"); lg.className = "legend";
-    lg.innerHTML = `<span><b style="color:var(--good)">Green</b> correct · <b style="color:var(--bad)">red</b> wrong</span><span><b style="color:var(--hint)">●</b> hint opened</span>`;
+    const written = s.questions.some(q => q.type === "subjective");
+    lg.innerHTML = `<span><b style="color:var(--good)">Green</b> ${written ? "correct or handed in" : "correct"} · <b style="color:var(--bad)">red</b> wrong</span>`
+      + (written ? `<span><b style="color:var(--good)">✓</b> marked by your instructor</span>` : "")
+      + `<span><b style="color:var(--hint)">●</b> hint opened</span>`;
     box.append(lg);
     el("scoreTop").textContent = fmtPts(stats(s, this.A.q).score);
   }
