@@ -32,8 +32,10 @@ export class Test {
     this.A = pick ? { status: pick.status || "waiting", q: pick.q || {}, cur: pick.cur || null, t: pick.t || 0, finishedAt: pick.finishedAt || 0 } : this.fresh();
     if (local && server && local.t > (server.t || 0)) this.dirty = true;     // unsent changes from before a refresh
     this.unwatch = this.store.watchAttempt(this.sid, this.uid, doc => {
-      if (doc) { this.onServer = true; return; }
-      if (this.onServer) { this.onServer = false; this.resetByInstructor(); }
+      if (!doc) { if (this.onServer) { this.onServer = false; this.resetByInstructor(); } return; }
+      this.onServer = true;
+      const marked = this.takeMarks(doc);
+      if (marked.length) this.marksArrived(marked);
     });
     this.timer = setInterval(() => this.tick(), 1000);
     this.beat = setInterval(() => { if (this.joined() && this.A.status !== "submitted") this.send(); }, HEARTBEAT);
@@ -115,6 +117,37 @@ export class Test {
     if (this.clockSynced) return;
     this.clockSynced = true;
     try { await this.store.syncClock(this.sid, this.uid); } catch (e) { this.clockSynced = false; }
+  }
+
+  // Marks come from the instructor and are never written by this page, so they are taken from
+  // the server copy as they arrive. Nothing else is: the answers here are the newer ones.
+  takeMarks(doc) {
+    const changed = [];
+    const theirs = doc.q || {};
+    for (const id in theirs) {
+      const from = theirs[id];
+      if (!from || typeof from !== "object") continue;
+      const mine = this.A.q[id] || (this.A.q[id] = {});
+      let hit = false;
+      for (const k of ["awarded", "note", "markedHash"]) {
+        if (from[k] !== undefined && from[k] !== mine[k]) { mine[k] = from[k]; hit = true; }
+      }
+      if (hit) changed.push(id);
+    }
+    // Keep them through a refresh, but don't send anything back: this page didn't write them.
+    if (changed.length) { try { localStorage.setItem(this.localKey, JSON.stringify(this.A)); } catch {} }
+    return changed;
+  }
+
+  // Redrawing is safe here: a marked answer is already handed in or the test is over, so
+  // nobody is typing in it.
+  marksArrived(ids) {
+    if (!this.session) return;
+    el("scoreTop").textContent = fmtPts(stats(this.session, this.A.q).score);
+    if (this.shown !== "test") return;
+    this.renderList();
+    if (this.view === "scores") this.renderScores();
+    else if (this.view === "test" && ids.includes(this.A.cur)) this.renderQ();
   }
 
   /* ─────────── Saving ─────────── */
