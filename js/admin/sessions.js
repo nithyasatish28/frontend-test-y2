@@ -57,6 +57,9 @@ export async function newSession(ctx) {
         <label class="field"><span>Time limit (minutes)</span><input name="minutes" type="number" min="1" max="300" required></label>
         <label class="field"><span>&nbsp;</span><span class="switch"><input type="checkbox" name="now"> Start the timer right away</span></label>
       </div>
+      <label class="field" data-livewrap hidden><span>&nbsp;</span><span class="switch"><input type="checkbox" name="live"> Mark written answers while the test is running</span></label>
+      <p class="note" data-livenote hidden style="margin:-6px 0 0">Off: you mark each student once they submit, or once the test ends — the usual way.
+        On: their answers appear in <b>Mark written answers</b> as they type, so you can mark a long paper as it comes in. They can still edit after you mark, and you'll be told when they have.</p>
       <p class="note">The session gets its own link to share with the students. It works until the test ends, then closes.</p>
       <p class="err" data-err></p>
     </form>
@@ -68,6 +71,7 @@ export async function newSession(ctx) {
     const cur = f.set.value;
     f.set.innerHTML = sets.length ? sets.map(s => `<option value="${esc(s.id)}">${esc(s.title || "Untitled")} (${(s.questions || []).length} questions)</option>`).join("") : `<option value="">No question sets yet: make one in Questions</option>`;
     if (cur && sets.some(s => s.id === cur)) f.set.value = cur;
+    showLive();
     pick();
   }
   function pick() {
@@ -76,7 +80,15 @@ export async function newSession(ctx) {
     if (!touchedTitle) f.stitle.value = `${s.title} · ${today}`;
     if (!f.minutes.dataset.touched) f.minutes.value = s.minutes || 45;
   }
-  f.set.addEventListener("change", pick);
+  // The choice is only shown when the chosen set actually has written answers in it.
+  function showLive() {
+    const s = sets.find(x => x.id === f.set.value);
+    const has = !!s && (s.questions || []).some(q => q.type === "subjective");
+    d.el.querySelector("[data-livewrap]").hidden = !has;
+    d.el.querySelector("[data-livenote]").hidden = !has;
+    if (!has) f.live.checked = false;
+  }
+  f.set.addEventListener("change", () => { pick(); showLive(); });
   f.minutes.addEventListener("input", () => (f.minutes.dataset.touched = "1"));
   d.el.querySelector("[data-create]").addEventListener("click", async e => {
     const btn = e.currentTarget;
@@ -92,7 +104,7 @@ export async function newSession(ctx) {
       const now = f.now.checked;
       const id = await store.createSession({
         title: f.stitle.value.trim(), setId: s.id, setTitle: s.title || "", minutes: m,
-        points: s.points ?? 1, hintPenalty: s.hintPenalty ?? 0.5, salt, ...pub,
+        points: s.points ?? 1, hintPenalty: s.hintPenalty ?? 0.5, liveMarking: !!f.live.checked, salt, ...pub,
         status: now ? "running" : "waiting", ...(now ? { startAt: store.NOW } : {}), stats: { joined: 0, submitted: 0, avg: 0, top: 0 },
       });
       await store.setSettings({ activeSessionId: id });                       // show it in the Live tab

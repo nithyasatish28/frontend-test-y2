@@ -4,12 +4,16 @@
 // Marking one question across every student beats going student by student: you hold one
 // question's standard in your head, and the marks come out consistent.
 //
-// Marks are written into the student's own attempt (entry.awarded, entry.note), which is also
-// where a student's browser writes. That is only safe once their test is over — while it is
-// running their next save carries their whole answer map and would wipe the mark. So this
-// screen only opens for students who have finished, and says so about the ones who haven't.
+// Marks are written into the student's own attempt (entry.awarded, entry.note). A student's own
+// save carries their whole answer map, but it is a merge, so a mark written here survives it —
+// which is what makes marking a running test possible at all.
+//
+// Two ways to work, chosen per session (liveMarking):
+//   off — the usual way: a student can be marked once they submit, or once the test ends.
+//   on  — mark as the answers arrive. A student can still edit after you mark them, so each
+//         answer remembers the text that was marked and says so when it no longer matches.
 import { esc, fmtPts } from "../lib/util.js";
-import { qPoints, needsMarking, written } from "../lib/grade.js";
+import { qPoints, needsMarking, written, cyrb53 } from "../lib/grade.js";
 import { dialog } from "./dialog.js";
 
 export const subjectiveQuestions = session => (session.questions || []).filter(q => q.type === "subjective");
@@ -34,6 +38,7 @@ export function markingDialog(ctx, sid, session, rows, { canMark = false } = {})
   // either they submitted, or the whole session has ended.
   const eligible = rows.filter(r => canMark || r.status === "submitted");
   const waiting = rows.length - eligible.length;
+  const live = !!session.liveMarking;
 
   // The marking notes are deliberately NOT in the session — publishQuestion strips them so a
   // student's browser can never receive them. They live on the question set the session was
@@ -59,6 +64,11 @@ export function markingDialog(ctx, sid, session, rows, { canMark = false } = {})
       <h2 style="margin-bottom:4px">${esc(q.label)} · ${esc(q.title || "Written answer")}</h2>
       <p class="note" style="margin:0 0 12px">Question ${qi + 1} of ${qs.length} · ${fmtPts(full)} mark${full === 1 ? "" : "s"} ·
         ${answered.length} answered · <b>${left}</b> still to mark${waiting ? ` · ${waiting} student${waiting === 1 ? "" : "s"} haven’t finished` : ""}</p>
+      <label class="switch" style="margin:0 0 12px"><input type="checkbox" data-live ${live ? "checked" : ""}>
+        Mark while the test is running</label>
+      <p class="note" style="margin:-8px 0 12px">${live
+        ? "On: every student's answer is here as they type, finished or not. They can still change it afterwards."
+        : "Off: a student can be marked once they submit, or once the test ends."}</p>
       <div class="markq">
         <div class="prompt">${esc(q.prompt || "")}</div>
         ${notes[q.id] ? `<details class="notes" open><summary>Your marking notes</summary><div>${esc(notes[q.id])}</div></details>` : ""}
@@ -76,6 +86,13 @@ export function markingDialog(ctx, sid, session, rows, { canMark = false } = {})
       inp.value = "0"; save(inp, q, full);
     }));
 
+    body.querySelector("[data-live]").addEventListener("change", async ev => {
+      const want = ev.target.checked;
+      ev.target.disabled = true;
+      try { await store.updateSession(sid, { liveMarking: want }); d.close("mode-changed"); }
+      catch (err) { ev.target.checked = !want; ev.target.disabled = false; }
+    });
+
     foot.innerHTML = `
       ${qs.length > 1 ? `<button class="btn ghost" data-prev type="button" ${qi === 0 ? "disabled" : ""}>← Previous question</button>
       <button class="btn ghost" data-next type="button" ${qi === qs.length - 1 ? "disabled" : ""}>Next question →</button>` : ""}
@@ -87,9 +104,13 @@ export function markingDialog(ctx, sid, session, rows, { canMark = false } = {})
   const row = (r, q, full) => {
     const e = (r.q || {})[q.id] || {};
     const marked = typeof e.awarded === "number";
+    // They may have carried on writing after being marked — say so rather than quietly disagree.
+    const stale = marked && e.markedHash && e.markedHash !== cyrb53(String(e.text || ""));
     return `
       <div class="markrow ${marked ? "done" : ""}" data-uid="${esc(r.id)}">
-        <div class="who"><b>${esc(r.name)}</b>${e.h ? ` <span class="spill idle">used the hint</span>` : ""}
+        <div class="who"><b>${esc(r.name)}</b>${e.h ? ` <span class="spill idle">used the hint</span>` : ""}${
+          stale ? ` <span class="spill bad">answered again since you marked it</span>` : ""}${
+          live && r.status !== "submitted" ? ` <span class="spill work">still working</span>` : ""}
           <span class="state" data-state>${marked ? `Marked ${fmtPts(e.awarded)} / ${fmtPts(full)}` : "Not marked"}</span></div>
         <div class="said">${esc(e.text || "")}</div>
         <div class="give">
@@ -111,9 +132,10 @@ export function markingDialog(ctx, sid, session, rows, { canMark = false } = {})
     const awarded = Number(raw);
     if (!(awarded >= 0 && awarded <= full)) { state.textContent = `Marks must be between 0 and ${fmtPts(full)}`; inp.focus(); return; }
     const note = rowEl.querySelector("[data-note]").value.trim();
+    const text = rowEl.querySelector(".said").textContent;
     state.textContent = "Saving…";
     try {
-      await store.saveAttempt(sid, uid, { q: { [q.id]: { awarded, note: note || null } } });
+      await store.saveAttempt(sid, uid, { q: { [q.id]: { awarded, note: note || null, markedHash: cyrb53(text) } } });
       rowEl.classList.add("done");
       state.textContent = `Marked ${fmtPts(awarded)} / ${fmtPts(full)}`;
     } catch (e) { state.textContent = e.message; }
@@ -123,9 +145,15 @@ export function markingDialog(ctx, sid, session, rows, { canMark = false } = {})
     body.innerHTML = `<h2>No written answers here</h2><p>This session has no written-answer questions, so there is nothing to mark by hand.</p>`;
     foot.innerHTML = `<button class="btn" data-close="" type="button">Close</button>`;
   } else if (!eligible.length) {
-    body.innerHTML = `<h2>Nothing to mark yet</h2><p>Written answers can be marked once a student has submitted, or once the test is over —
-      until then their own page keeps saving over the top.</p>`;
+    body.innerHTML = `<h2>Nothing to mark yet</h2>
+      <p>Nobody has submitted, and the test is still running. You can either wait, or mark the answers as they are written.</p>
+      <label class="switch"><input type="checkbox" data-live> Mark while the test is running</label>`;
     foot.innerHTML = `<button class="btn" data-close="" type="button">Close</button>`;
+    body.querySelector("[data-live]").addEventListener("change", async ev => {
+      ev.target.disabled = true;
+      try { await store.updateSession(sid, { liveMarking: true }); d.close("mode-changed"); }
+      catch (err) { ev.target.checked = false; ev.target.disabled = false; }
+    });
   } else draw();
 
   return d.done;

@@ -70,7 +70,7 @@ export function mount(view, ctx, sid, isLiveTab = false) {
   // Marks are given in the student's browser, so they can be checked again here. See regrade.js.
   $("[data-mark]").addEventListener("click", () => {
     if (!session) return;
-    markingDialog(ctx, sid, session, rows, { canMark: phaseOf(session, now()) === "ended" });
+    markingDialog(ctx, sid, session, rows, { canMark: phaseOf(session, now()) === "ended" || !!session.liveMarking });
   });
   $("[data-regrade]").addEventListener("click", () => {
     if (!session) return;
