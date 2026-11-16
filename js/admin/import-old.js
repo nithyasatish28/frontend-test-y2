@@ -10,7 +10,11 @@ import { dialog } from "./dialog.js";
 
 const OLD_URL = "https://script.google.com/macros/s/AKfycbwqilzIa03QnpWyphshHGkC-jOVAqcQbwHQ84LRqxl3TFDMCsrGvzZjNLxpTgNoZGMqfg/exec";
 const OLD_SET = STARTER_SETS[0];                              // "JS + React Test": ids a1…d7 = old A1…D7
-const OLD_IDS = OLD_SET.questions.map(q => q.id.toUpperCase());
+// The old app always asked the same 27 questions, A1…D7. The starter set has grown since
+// (written answers, for one), and none of that was ever part of an old sitting — so both the
+// id list and the session an import is measured against are pinned to those 27.
+const OLD_IDS = OLD_SET.questions.map(q => q.id.toUpperCase()).filter(id => /^[A-D]\d+$/.test(id));
+const OLD_QUESTIONS = OLD_SET.questions.filter(q => OLD_IDS.includes(q.id.toUpperCase()));
 
 export function parseCSV(text) {
   text = text.replace(/^﻿/, "");
@@ -127,7 +131,7 @@ export async function importOld(ctx) {
   const makeSession = (title, startMs, minutes, endMs, from) => {
     const salt = randomId(16);
     return {
-      title, setId: null, setTitle: OLD_SET.title + " (old app)", minutes, points: 1, hintPenalty: 0.5, salt, ...publishSet(OLD_SET, salt),
+      title, setId: null, setTitle: OLD_SET.title + " (old app)", minutes, points: 1, hintPenalty: 0.5, salt, ...publishSet({ ...OLD_SET, questions: OLD_QUESTIONS }, salt),
       status: "ended", startAt: store.time(startMs), endAt: store.time(endMs || startMs + minutes * 60000), createdAt: store.time(startMs), imported: from,
     };
   };

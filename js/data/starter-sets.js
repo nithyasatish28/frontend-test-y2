@@ -23,6 +23,10 @@ export const STARTER_SETS = [
    {
     "id": "s4",
     "title": "Debugging"
+   },
+   {
+    "id": "s5",
+    "title": "Written answers"
    }
   ],
   "questions": [
@@ -791,6 +795,32 @@ export const STARTER_SETS = [
      }
     ],
     "hint": "The 3 bugs: a property name that doesn’t match the object, a spelling mistake, and a total that forgets what it already had."
+   },
+   {
+    "id": "e1",
+    "section": "s5",
+    "type": "subjective",
+    "points": 5,
+    "title": "Why state, and not just a variable",
+    "prompt": "This counter never changes on screen, however many times you click. Swapping `count` for `useState` fixes it.\n\nExplain **why** — what React does that a plain variable doesn't survive.",
+    "code": "function Counter() {\n  let count = 0;\n  return <button onClick={() => count++}>Clicked {count} times</button>;\n}",
+    "codeLang": "js",
+    "rows": 8,
+    "guidance": "Four or five sentences. No code needed.",
+    "expected": "Full marks (5) for all three ideas:\n  1. React draws a component by running the function again.\n  2. A plain `let` is created fresh on every run, so last click's value is gone.\n  3. Setting state both remembers the value and tells React to run the function again — `count++` tells it nothing, so nothing redraws.\nTwo of the three: 3–4. One: 1–2. Only \"useState is for state\": 0–1.",
+    "hint": "What has to happen on screen after a click, and who makes it happen?"
+   },
+   {
+    "id": "e2",
+    "section": "s5",
+    "type": "subjective",
+    "points": 5,
+    "title": "Tracking down a blank page",
+    "prompt": "A classmate says: *\"My app worked, I added a list, now the page is completely blank and there's a red error in the console.\"*\n\nWrite the steps you'd take to find the problem — in order, and say what each step would tell you.",
+    "rows": 10,
+    "guidance": "You're being marked on how you'd look, not on guessing the bug.",
+    "expected": "Full marks (5) for an ordered method that actually narrows things down, e.g.:\n  · read the actual error text and the line number first, rather than re-reading all the code\n  · undo the last change (or comment the list out) to confirm it's the cause\n  · console.log the data just before the list — is it an array, is it undefined?\n  · check the map callback returns JSX, and that each item has a key\n  · reproduce with one hard-coded item before going back to real data\n3–4 for a sensible but thin order. 1–2 for \"check the code again\" with no method. Mentioning reading the error first is worth a mark on its own.",
+    "hint": "The error message is evidence. Start there, not in the code."
    }
   ]
  },
@@ -816,6 +846,10 @@ export const STARTER_SETS = [
    {
     "id": "s4",
     "title": "Debugging"
+   },
+   {
+    "id": "ps5",
+    "title": "Written answers"
    }
   ],
   "questions": [
@@ -1064,6 +1098,32 @@ export const STARTER_SETS = [
      }
     ],
     "hint": "You can’t + text and a number. Do the sum first, then turn it into text with str()."
+   },
+   {
+    "id": "pe1",
+    "section": "ps5",
+    "type": "subjective",
+    "points": 5,
+    "title": "A list or a dictionary?",
+    "prompt": "You're storing the marks of 60 students.\n\nWould you use a **list** or a **dictionary**? Say which, and why — and give one thing that would be awkward with the other choice.",
+    "rows": 8,
+    "guidance": "Three or four sentences. There's no single right answer: the reasoning is what's marked.",
+    "expected": "Full marks (5) for a clear choice backed by how the data is reached:\n  · dictionary keyed by name or roll number → look a student up directly, no searching\n  · list → fine if you only ever go through all of them in order, or need them ordered\n  · the awkward half: finding one student in a list means searching it; a dictionary has no order of its own and can't hold two students with the same key\nAny well-argued choice earns full marks. 3–4 for a choice with thin reasoning. 0–2 for a choice with no reason, or for repeating the definitions.",
+    "hint": "How will you look up one student tomorrow?"
+   },
+   {
+    "id": "pe2",
+    "section": "ps5",
+    "type": "subjective",
+    "points": 5,
+    "title": "Reading an error",
+    "prompt": "A program stops with this error.\n\nIn your own words: what has gone wrong, and what would you change?",
+    "code": "Traceback (most recent call last):\n  File \"main.py\", line 7, in <module>\n    print(marks[5])\nIndexError: list index out of range",
+    "codeLang": "text",
+    "rows": 7,
+    "guidance": "Two or three sentences is plenty.",
+    "expected": "Full marks (5) for:\n  · the list has fewer than 6 items, so position 5 doesn't exist\n  · positions start at 0, so a 5-item list only goes up to index 4\n  · a fix: check len(marks) first, loop over the list instead of indexing, or use a position that exists\n3–4 for the right idea without the 0-based point. 1–2 for only repeating \"index out of range\". The line number being line 7 is a bonus observation, not required.",
+    "hint": "Count the positions in a list of five, starting from zero."
    }
   ]
  }
