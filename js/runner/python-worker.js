@@ -38,9 +38,10 @@ def _friendly(e):
     }.get(name, "")
     return f"{name}{where}: {e}{tip}"
 
-def _exec(src, stdin_text, echo):
+def _exec(src, stdin_text, echo, base=None):
     out = io.StringIO()
-    ns = {"__name__": "__main__", "input": _Input(stdin_text, out, echo)}
+    ns = dict(base or {})
+    ns.update({"__name__": "__main__", "input": _Input(stdin_text, out, echo)})
     old = sys.stdout, sys.stderr
     sys.stdout = sys.stderr = out
     err = None
@@ -66,26 +67,31 @@ def _not_right(got, reveal=False, want=None):
 def _strip_comments(src):
     return re.sub(r"(?m)^\s*#.*$|\s+#[^'\"\n]*$", "", src)
 
-# The hidden setup also runs once BEFORE the student's program, so it can provide
-# stand-in modules (e.g. a small fake "fastapi" in sys.modules) that their imports find.
+# The hidden setup runs once BEFORE the student's program, and whatever it defines is handed
+# to that program: a DataFrame called df, sample data, a stand-in module registered in
+# sys.modules. "df is already loaded" in a question only works because of this.
 def _prelude(setup):
+    base = {}
     if setup.strip():
         try:
-            exec(setup, {"__name__": "__setup__"})
+            exec(setup, base)
         except BaseException:
-            pass
+            pass        # a broken setup is reported later, where there is somewhere to show it
+    base.pop("__builtins__", None)
+    base.pop("__name__", None)
+    return base
 
 def __run(src, stdin_text, setup=""):
-    _prelude(setup)
-    ns, out, err = _exec(src, stdin_text, True)
+    base = _prelude(setup)
+    ns, out, err = _exec(src, stdin_text, True, base)
     return json.dumps({"out": out, "err": err})
 
 def __check(src, stdin_text, setup, tests_json, reveal=False):
     tests = json.loads(tests_json)
-    _prelude(setup)
-    ns, out, err = _exec(src, stdin_text, False)
+    base = _prelude(setup)
+    ns, out, err = _exec(src, stdin_text, False, base)
     env = dict(ns)
-    env.update(OUTPUT=out, SOURCE=src, ERROR=err, run=lambda text="": _exec(src, text, False)[1])
+    env.update(OUTPUT=out, SOURCE=src, ERROR=err, run=lambda text="": _exec(src, text, False, base)[1])
     setup_err = None
     if setup.strip():
         try:
