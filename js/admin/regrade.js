@@ -53,6 +53,12 @@ export async function auditEntry(session, q, e, { codeTests = false } = {}) {
       : result("disagrees", `${marks.filter(Boolean).length} of ${marks.length} blanks are right`, saved, computed, { s: computed, marks });
   }
 
+  if (q.type === "subjective") {
+    // Marked by a person, so there is nothing to recompute — only to report.
+    return typeof e?.awarded === "number"
+      ? result("unchecked", "marked by hand", saved, null)
+      : result("unchecked", e?.text ? "written, not marked yet" : "not answered", saved, null);
+  }
   // Code. The only mark a code question ever gives itself is "correct".
   if (saved !== "c") return result("unchecked", saved == null ? "no mark to check" : "", saved, null);
   if (!e.checked) return result("disagrees", "marked correct, but no checked code was saved", saved, null, { s: null });

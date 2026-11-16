@@ -148,3 +148,24 @@ dialog.dlg::backdrop { background: rgba(23,32,29,.55); }
 .dlg-body h2 { margin: 0 0 8px; font: 800 1.4rem var(--f-head); }
 .dlg-foot { display: flex; gap: 10px; justify-content: flex-end; padding: 14px 26px 20px; flex-wrap: wrap; }
 .preview-frame { background: var(--paper); border-radius: 12px; padding: 12px; }
+
+/* A written answer waiting to be marked, in the Live grid. */
+.cells .c.c-m { background: var(--hint); }
+
+/* Marking written answers, one question across every student. */
+.markq { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+.markq .prompt { font-weight: 600; }
+.markq .notes { margin-top: 10px; }
+.markq .notes summary { cursor: pointer; font-size: .85rem; font-weight: 700; color: var(--muted); }
+.markq .notes div { margin-top: 8px; white-space: pre-wrap; font-size: .92rem; color: var(--ink); }
+.marklist { display: flex; flex-direction: column; gap: 10px; max-height: 60vh; overflow-y: auto; }
+.markrow { border: 1px solid var(--line); border-left: 4px solid var(--hint); border-radius: 12px; padding: 12px 14px; background: var(--card); }
+.markrow.done { border-left-color: var(--good); }
+.markrow .who { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.markrow .state { margin-left: auto; font-size: .82rem; color: var(--muted); font-weight: 600; }
+.markrow.done .state { color: var(--good); }
+.markrow .said { white-space: pre-wrap; background: var(--paper); border-radius: 10px; padding: 10px 12px; font-size: .95rem; line-height: 1.55; }
+.markrow .give { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.markrow .give label { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: .85rem; white-space: nowrap; }
+.markrow .give input[data-award] { width: 90px; }
+.markrow .give input[data-note] { flex: 1 1 200px; min-width: 0; }

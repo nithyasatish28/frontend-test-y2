@@ -262,6 +262,8 @@ export class Test {
     el("stCorrect").textContent = st.correct; el("stCorrectLabel").textContent = "correct";
     el("stHints").textContent = st.hints; el("stHintsLabel").textContent = `hints (−${fmtPts(pen)} each)`;
     el("stLeft").textContent = st.total - st.done;
+    const note = el("finishNote");
+    if (st.pending && note) note.textContent = `${st.pending} written answer${st.pending === 1 ? "" : "s"} still to be marked by your instructor, so this score isn’t final.`;
     let rows = `<thead><tr><th>Question</th><th>Result</th><th class="n">Answer</th><th class="n">Hint</th><th class="n">Points</th></tr></thead><tbody>`;
     for (const sec of s.sections) {
       const qs = s.questions.filter(q => q.sectionKey === sec.key);
@@ -270,8 +272,14 @@ export class Test {
       rows += `<tr class="part"><td colspan="4">Part ${sec.key} · ${esc(sec.title)}</td><td class="n">${fmtPts(sub)} / ${fmtPts(outOf)}</td></tr>`;
       for (const q of qs) {
         const e = this.A.q[q.id] || {};
-        const res = e.s === "c" ? "✓ Correct" : e.s === "w" ? "✗ Not correct" : q.type === "code" && e.checked != null ? `In progress (${esc(e.checks || "")} checks)` : "Not done";
-        rows += `<tr><td><b>${q.label}</b> ${esc(q.title)}</td><td>${res}</td><td class="n pos">${e.s === "c" ? "+" + fmtPts(qPoints(q, s)) : "0"}</td><td class="n neg">${e.h ? "−" + fmtPts(pen) : ""}</td><td class="n"><b>${fmtPts(entryPoints(e, s, q))}</b></td></tr>`;
+        const marked = typeof e.awarded === "number";
+        const res = q.type === "subjective"
+          ? (marked ? `✓ Marked ${fmtPts(e.awarded)} / ${fmtPts(qPoints(q, s))}`
+             : String(e.text || "").trim() ? "Written — your instructor marks this" : "Not done")
+          : e.s === "c" ? "✓ Correct" : e.s === "w" ? "✗ Not correct"
+          : q.type === "code" && e.checked != null ? `In progress (${esc(e.checks || "")} checks)` : "Not done";
+        const got = marked ? "+" + fmtPts(e.awarded) : e.s === "c" ? "+" + fmtPts(qPoints(q, s)) : "0";
+        rows += `<tr><td><b>${q.label}</b> ${esc(q.title)}</td><td>${res}</td><td class="n pos">${got}</td><td class="n neg">${e.h ? "−" + fmtPts(pen) : ""}</td><td class="n"><b>${fmtPts(entryPoints(e, s, q))}</b></td></tr>`;
       }
     }
     el("scoreTable").innerHTML = rows + "</tbody>";

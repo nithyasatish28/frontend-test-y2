@@ -45,3 +45,7 @@
 @keyframes bob { 0%, 80%, 100% { transform: scale(.5); opacity: .4; } 40% { transform: scale(1); opacity: 1; } }
 .gate-foot { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center; }
 @media (max-width: 560px) { .rules, .stats, .facts { grid-template-columns: 1fr; } .big { font-size: 3.2rem; } }
+
+/* Written (subjective) answers: a plain box, and the wait while an instructor reads it. */
+textarea.written { font: inherit; line-height: 1.55; resize: vertical; min-height: 120px; }
+.result.wait { background: var(--wip); color: var(--wip-ink); }

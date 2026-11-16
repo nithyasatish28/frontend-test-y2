@@ -12,7 +12,7 @@
 import { esc, fmtPts } from "../lib/util.js";
 import { markdown, inline } from "../lib/markdown.js";
 import { highlight } from "../lib/highlight.js";
-import { mcqRight, blanksMarks, qPoints } from "../lib/grade.js";
+import { mcqRight, blanksMarks, qPoints, written } from "../lib/grade.js";
 import { createEditor } from "./editor.js";
 import { runCode, checkCode, checkNames } from "../runner/index.js";
 
@@ -21,7 +21,10 @@ const LETTERS = "ABCDEFGH";
 export function renderQuestion(card, opts) {
   const { q, entry, session, isLocked, meta = {}, nav = {}, onChange = () => {} } = opts;
   const pts = qPoints(q, session), pen = session.hintPenalty ?? 0.5;
-  const status = entry.s === "c" ? `<span class="pill status-correct">Correct · +${fmtPts(pts)}</span>` : entry.s === "w" ? `<span class="pill status-wrong">Not correct</span>` : "";
+  const status = typeof entry.awarded === "number"
+    ? `<span class="pill ${entry.awarded > 0 ? "status-correct" : "status-wrong"}">Marked · ${fmtPts(entry.awarded)} of ${fmtPts(pts)}</span>`
+    : entry.s === "c" ? `<span class="pill status-correct">Correct · +${fmtPts(pts)}</span>`
+    : entry.s === "w" ? `<span class="pill status-wrong">Not correct</span>` : "";
   card.innerHTML = `
     <div class="qhead"><span class="pill">${esc(q.label || "")}</span>${meta.sectionTitle ? `<span>Part ${esc(q.sectionKey || "")} · ${esc(meta.sectionTitle)}</span>` : ""}${meta.total ? `<span>Question ${meta.index + 1} of ${meta.total}</span>` : ""}<span>${fmtPts(pts)} point${pts === 1 ? "" : "s"}</span>${status}</div>
     <h2>${esc(q.title)}</h2>
@@ -37,7 +40,10 @@ export function renderQuestion(card, opts) {
   const body = card.querySelector(".qbody"), hintbox = card.querySelector(".hintbox");
   const rerender = () => renderQuestion(card, opts);
   const ctx = { q, entry, session, isLocked, onChange, body, rerender, pts };
-  if (q.type === "mcq") mcq(ctx); else if (q.type === "blanks") blanks(ctx); else code(ctx);
+  if (q.type === "mcq") mcq(ctx);
+  else if (q.type === "blanks") blanks(ctx);
+  else if (q.type === "subjective") subjective(ctx);
+  else code(ctx);
   hint(hintbox, ctx, pen);
 }
 
@@ -110,6 +116,33 @@ function blanks({ q, entry, session, isLocked, onChange, body, rerender, pts }) 
     entry.s = entry.marks.every(Boolean) ? "c" : "w";
     onChange("answer"); rerender();
   });
+}
+
+// A written answer. Nothing is marked here: the instructor reads it afterwards, so there is
+// no key to send and nothing in the page that could give the answer away.
+function subjective({ q, entry, session, isLocked, onChange, body, pts }) {
+  if (entry.text == null) entry.text = "";
+  const marked = typeof entry.awarded === "number";
+  const locked = isLocked() || marked;
+  body.innerHTML = `
+    ${q.code ? `<pre class="show">${highlight(q.code, q.codeLang || "text")}</pre>` : ""}
+    ${q.guidance ? `<p class="note">${inline(q.guidance)}</p>` : ""}
+    <textarea class="input written" data-answer rows="${Number(q.rows) || 8}" spellcheck="true"
+      placeholder="Write your answer here." ${locked ? "disabled" : ""}>${esc(entry.text)}</textarea>
+    <div class="actions"><span class="note" data-count></span></div>
+    ${marked
+      ? `<div class="result ${entry.awarded > 0 ? "good" : "bad"}">Your instructor gave this ${fmtPts(entry.awarded)} of ${fmtPts(pts)}.${
+          entry.note ? ` <span class="note">${esc(entry.note)}</span>` : ""}</div>`
+      : isLocked()
+        ? `<div class="result wait">Handed in. Your instructor reads this one and marks it by hand, so it isn’t in your score yet.</div>`
+        : `<div class="note">Your instructor reads this one and marks it by hand. There is nothing to submit — what you type is saved as you go.</div>`}`;
+  const ta = body.querySelector("[data-answer]"), count = body.querySelector("[data-count]");
+  const show = () => {
+    const w = written({ text: ta.value });
+    count.textContent = w ? `${w.split(/\s+/).length} words` : "Nothing written yet";
+  };
+  show();
+  ta.addEventListener("input", () => { entry.text = ta.value; show(); onChange("text"); });
 }
 
 function code(ctx) {

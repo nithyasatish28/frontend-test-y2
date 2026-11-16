@@ -2,12 +2,16 @@
 // One row = one question. Columns:
 //
 //   part        the part it belongs to, e.g. "Multiple choice". Parts appear in the order they first show up.
-//   type        mcq | blanks | code          ("debugging" also works: it's a code question)
+//   type        mcq | blanks | code | subjective   ("debugging" also works: it's a code question,
+//               and "written"/"essay" also mean subjective)
 //   points      optional: this question's points (empty = the set's default)
 //   language    mcq/blanks: js, python, shell or text (for colouring)   code: js, react, python or terminal
 //   title       a few words
 //   question    what students read (Markdown: **bold**, `code`, - lists)
 //   code        mcq: code shown above the options · blanks: code with __1__, __2__ … · code: the starter code
+//               subjective: anything to read above the answer box (optional)
+//   solution    subjective: your marking notes. Only you ever see them.
+//   preview     subjective: a short note under the question, e.g. "Four or five sentences."
 //   option_a … option_f    mcq options
 //   answer      mcq: the letter of the right option (A–F)
 //               blanks: the answers in blank order, separated by ;;   other accepted answers with OR
@@ -41,7 +45,9 @@ export function setToRows(set) {
   return set.questions.map(q => {
     const r = Object.fromEntries(COLUMNS.map(c => [c, ""]));
     Object.assign(r, { part: secTitle(q.section), type: q.type, points: q.points ?? "", title: q.title || "", question: q.prompt || "", hint: q.hint || "" });
-    if (q.type === "mcq") {
+    if (q.type === "subjective") {
+      Object.assign(r, { language: q.codeLang || "text", code: q.code || "", solution: q.expected || "", preview: q.guidance || "" });
+    } else if (q.type === "mcq") {
       r.language = q.codeLang || "js"; r.code = q.code || "";
       (q.options || []).slice(0, 6).forEach((o, i) => (r["option_" + "abcdef"[i]] = o));
       r.answer = LETTERS[q.answer] || "";
@@ -74,6 +80,7 @@ function normType(v) {
   const s = String(v || "").trim().toLowerCase();
   if (/^(mcq|multiple|choice)/.test(s)) return "mcq";
   if (/^(blank|fill)/.test(s)) return "blanks";
+  if (/^(subjective|written|essay|long|descriptive|theory)/.test(s)) return "subjective";
   if (/^(code|debug|program|write)/.test(s)) return "code";
   return null;
 }
@@ -94,12 +101,16 @@ export function rowsToSet(table) {
     const rowNo = k + 2;                                   // as Excel numbers it, with the header on row 1
     if (!r.some(x => String(x).trim())) return;
     const type = normType(get(r, "type"));
-    if (!type) { problems.push(`Row ${rowNo}: type “${get(r, "type")}” isn’t mcq, blanks or code, so it was skipped.`); return; }
+    if (!type) { problems.push(`Row ${rowNo}: type “${get(r, "type")}” isn’t mcq, blanks, code or subjective, so it was skipped.`); return; }
     const q = { id: "q" + randomId(8), section: sectionFor(get(r, "part")), type, title: get(r, "title").trim(), prompt: get(r, "question").trim(), hint: get(r, "hint").trim() };
     if (!q.title) problems.push(`Row ${rowNo}: has no title.`);
     const pts = get(r, "points").trim();
     if (pts) { if (Number(pts) > 0) q.points = Number(pts); else problems.push(`Row ${rowNo}: points “${pts}” isn’t a number above 0, so the set’s default was used.`); }
-    if (type === "mcq") {
+    if (type === "subjective") {
+      Object.assign(q, { code: get(r, "code"), codeLang: get(r, "language").trim() || "text",
+        expected: get(r, "solution"), guidance: get(r, "preview").trim(), rows: 8 });
+      if (!q.prompt) problems.push(`Row ${rowNo}: a written answer needs a question, so it was left empty.`);
+    } else if (type === "mcq") {
       q.code = get(r, "code").replace(/\s+$/, ""); q.codeLang = normLang(get(r, "language"), false);
       q.options = "abcdef".split("").map(l => get(r, "option_" + l).trim()).filter(Boolean);
       const a = get(r, "answer").trim().toUpperCase();
@@ -176,6 +187,10 @@ const EXAMPLES = [
     question: "You are in **Desktop**. Your Vite app is in `Desktop/frontend/canteen-react`. Go into it, install the packages and start it.",
     code: "# You are in: Desktop\n", solution: "cd frontend/canteen-react\nnpm install\nnpm run dev\n",
     setup: '{"start": "Desktop", "app": "Desktop/frontend/canteen-react", "script": "dev"}' },
+  { part: "Written answers", type: "subjective", points: 5, language: "text", title: "Why state, not a variable",
+    question: "A counter built with a plain `let` variable doesn’t update on screen, but `useState` does. Explain why, in your own words.",
+    preview: "Four or five sentences is plenty.",
+    solution: "Full marks: says React re-runs the component to draw it, that a plain variable is thrown away and re-made each time, and that setting state is what asks React to draw again. Half marks for one of the three." },
 ];
 export const downloadTemplate = () => download("question-template.csv", rowsToCSV(EXAMPLES), "text/csv");
 export const downloadSetCSV = set => download(`${(set.title || "questions").replace(/[^\p{L}\p{N}]+/gu, "-").toLowerCase()}.csv`, rowsToCSV(setToRows(set)), "text/csv");

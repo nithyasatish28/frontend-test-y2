@@ -1,8 +1,9 @@
 // One session, live: start/end it, watch every student, open their answers, download results.
 import { esc, fmtPts, mmss, clock, dateTime, confirmClick, download, csvLine, copyText, toast } from "../lib/util.js";
-import { stats, cellCode, answerText } from "../lib/grade.js";
+import { stats, cellCode, answerText, qPoints } from "../lib/grade.js";
 import { phaseOf, phasePill, newSession } from "./sessions.js";
 import { regradeDialog } from "./regrade.js";
+import { markingDialog, unmarkedCount, subjectiveQuestions } from "./marking.js";
 
 const IDLE_MIN = 5;
 
@@ -49,14 +50,14 @@ export function mount(view, ctx, sid, isLiveTab = false) {
       <div class="legend"><span>% right, out of the students who have tried it ·</span><span><i style="background:var(--bad-soft);border:1px solid #f3c3bd"></i>under 40%</span><span><i style="background:var(--hint-soft);border:1px solid #f0d6a6"></i>40–70%</span><span><i style="background:var(--good-soft);border:1px solid #b9e3c9"></i>over 70%</span></div></section>
     <section class="card">
       <div class="page-head" style="margin-bottom:8px"><h2 style="margin:0;margin-right:auto">Students</h2>
-        <button class="btn ghost small" data-regrade type="button">Re-grade &amp; verify</button><button class="btn ghost small" data-csv type="button">Download scores (CSV)</button><button class="btn ghost small" data-csv2 type="button">Download all answers (CSV)</button></div>
+        <button class="btn small" data-mark type="button" hidden>Mark written answers</button><button class="btn ghost small" data-regrade type="button">Re-grade &amp; verify</button><button class="btn ghost small" data-csv type="button">Download scores (CSV)</button><button class="btn ghost small" data-csv2 type="button">Download all answers (CSV)</button></div>
       <p class="sub" style="margin:0 0 12px">Click a student to see exactly what they answered.</p>
       <div class="tools">
         <input type="search" data-search placeholder="Search by name" aria-label="Search students">
         <select data-sort aria-label="Sort by"><option value="score">Score, high to low</option><option value="roll">Order joined</option><option value="name">Name</option><option value="seen">Last seen, oldest first</option><option value="done">Questions done, fewest first</option></select>
         <select data-filter aria-label="Show"><option value="all">Everyone</option><option value="wait">In the waiting room</option><option value="work">Still working</option><option value="idle">Idle for ${IDLE_MIN}+ minutes</option><option value="done">Submitted</option><option value="late">Not submitted (test over)</option></select>
       </div>
-      <div class="legend" style="margin:0 0 10px"><span><i style="background:var(--good)"></i>correct</span><span><i style="background:var(--bad)"></i>wrong</span><span><i style="background:#b9c9e6"></i>code started</span><span><i style="background:#eef1ef"></i>not done</span><span><i style="background:var(--hint);border-radius:50%"></i>hint used</span></div>
+      <div class="legend" style="margin:0 0 10px"><span><i style="background:var(--good)"></i>correct</span><span><i style="background:var(--bad)"></i>wrong</span><span><i style="background:#b9c9e6"></i>code started</span><span><i style="background:var(--hint)"></i>to mark by hand</span><span><i style="background:#eef1ef"></i>not done</span><span><i style="background:var(--hint);border-radius:50%"></i>hint used</span></div>
       <div class="tablewrap"><table class="grid" data-table></table></div>
     </section>`;
   const $ = s => view.querySelector(s);
@@ -67,6 +68,10 @@ export function mount(view, ctx, sid, isLiveTab = false) {
   $("[data-csv]").addEventListener("click", () => csvScores());
   $("[data-csv2]").addEventListener("click", () => csvAnswers());
   // Marks are given in the student's browser, so they can be checked again here. See regrade.js.
+  $("[data-mark]").addEventListener("click", () => {
+    if (!session) return;
+    markingDialog(ctx, sid, session, rows, { canMark: phaseOf(session, now()) === "ended" });
+  });
   $("[data-regrade]").addEventListener("click", () => {
     if (!session) return;
     if (!rows.length) { toast("No students have joined yet."); return; }
@@ -82,6 +87,17 @@ export function mount(view, ctx, sid, isLiveTab = false) {
     return (minsAgo(r) ?? 0) >= IDLE_MIN ? "idle" : "work";
   };
   const rowStats = r => stats(session, r.q || {});
+  // "Mark written answers" is only shown when the session has written answers at all.
+  function drawMarkButton() {
+    const b = $("[data-mark]");
+    if (!b || !session) return;
+    const has = subjectiveQuestions(session).length;
+    b.hidden = !has;
+    if (!has) return;
+    const left = unmarkedCount(session, rows);
+    b.textContent = left ? `Mark written answers (${left})` : "Written answers · all marked";
+    b.className = left ? "btn small" : "btn ghost small";
+  }
 
   /* ─────────── session card ─────────── */
   function drawSession() {
@@ -148,8 +164,8 @@ export function mount(view, ctx, sid, isLiveTab = false) {
       [idle, `idle for ${IDLE_MIN}+ minutes`, idle ? "warn" : ""],
     ].map(([v, l, c]) => `<div class="tile ${c || ""}"><b>${v}</b><span>${l}</span></div>`).join("");
     $("[data-diff]").innerHTML = session.questions.map(q => {
-      const codes = rows.map(r => cellCode(q, (r.q || {})[q.id]));
-      const tried = codes.filter(c => /^[cwp]/.test(c)).length, right = codes.filter(c => c.startsWith("c")).length;
+      const codes = rows.map(r => cellCode(q, (r.q || {})[q.id], session));
+      const tried = codes.filter(c => /^[cwpm]/.test(c)).length, right = codes.filter(c => c.startsWith("c")).length;
       const pct = tried ? Math.round(right / tried * 100) : 0;
       const cls = !tried ? "" : pct < 40 ? "lo" : pct <= 70 ? "mid" : "hi";
       return `<div class="dq ${cls}" title="${esc(q.label)} ${esc(q.title)}: ${right} of ${tried} right"><b>${esc(q.label)}</b><span>${tried ? pct + "%" : "–"}</span></div>`;
@@ -197,8 +213,8 @@ export function mount(view, ctx, sid, isLiveTab = false) {
       for (const qq of session.questions) {
         if (prev && qq.sectionKey !== prev) cells += `<span class="gap"></span>`;
         prev = qq.sectionKey;
-        const v = cellCode(qq, (r.q || {})[qq.id]), k = v[0] && v[0] !== "h" ? v[0] : "";
-        const label = { c: "correct", w: "wrong", p: "code started" }[k] || "not done";
+        const v = cellCode(qq, (r.q || {})[qq.id], session), k = v[0] && v[0] !== "h" ? v[0] : "";
+        const label = { c: "correct", w: "wrong", p: "partly right", m: "written, waiting to be marked" }[k] || "not done";
         cells += `<span class="c ${k ? "c-" + k : ""} ${v.includes("h") ? "h" : ""}" title="${esc(qq.label)}: ${label}${v.includes("h") ? ", hint used" : ""}"></span>`;
       }
       const s = stateOf(r), m = minsAgo(r);
@@ -231,6 +247,13 @@ export function mount(view, ctx, sid, isLiveTab = false) {
       const e = (r.q || {})[q.id];
       const hint = e?.h ? `<span class="r h">hint</span>` : "";
       if (!e || (e.s == null && e.checked == null && (e.code == null || e.code === q.starter))) return `<div class="ans"><b>${esc(q.label)}</b> <span class="empty-ans">not answered</span>${hint}</div>`;
+      if (q.type === "subjective") {
+        const full = qPoints(q, session), got = typeof e.awarded === "number";
+        const tag = got ? `<span class="r ${e.awarded > 0 ? "ok" : "no"}">${fmtPts(e.awarded)} / ${fmtPts(full)}</span>`
+          : `<span class="r p">waiting to be marked</span>`;
+        return `<div class="ans"><b>${esc(q.label)}</b>${tag}${hint}${e.note ? ` <span class="note">${esc(e.note)}</span>` : ""}` +
+          `<div class="t">${esc(e.text || "")}</div></div>`;
+      }
       const res = e.s === "c" ? `<span class="r ok">✓ correct</span>` : e.s === "w" ? `<span class="r no">✗ wrong${q.type === "blanks" && e.marks ? ` (${e.marks.filter(Boolean).length}/${e.marks.length} blanks)` : ""}</span>`
         : e.checked != null ? `<span class="r no">✗ ${esc(e.checks || "")} checks</span>` : `<span class="r p">not checked yet</span>`;
       const extra = q.type === "code" && e.s === "c" && e.checks ? ` <span class="note">${esc(e.checks)}</span>` : "";
@@ -250,7 +273,7 @@ export function mount(view, ctx, sid, isLiveTab = false) {
       const st = rowStats(r);
       return csvLine([r.name, { done: "submitted", wait: "waiting", late: "not submitted", idle: "idle", work: "working" }[stateOf(r)], st.score, st.max, st.correct, st.hints, st.done,
         r.joinedAt ? new Date(r.joinedAt).toLocaleString() : "", r.finishedAt ? new Date(r.finishedAt).toLocaleString() : "", r.lastSeen ? new Date(r.lastSeen).toLocaleString() : "",
-        ...qs.map(q => cellCode(q, (r.q || {})[q.id]))]);
+        ...qs.map(q => cellCode(q, (r.q || {})[q.id], session))]);
     }));
     download(`${fileBase()}-scores.csv`, "﻿" + lines.join("\n"), "text/csv");
   }
@@ -267,12 +290,12 @@ export function mount(view, ctx, sid, isLiveTab = false) {
   const offS = store.watchSession(sid, (s, err) => {
     if (err) { view.innerHTML = `<div class="card"><h2>Can’t open this session</h2><p>${esc(err.message)}</p></div>`; return; }
     if (!s) { view.innerHTML = `<div class="card"><h2>This session was deleted</h2><p><a href="#/sessions">See all sessions</a></p></div>`; return; }
-    session = s; drawSession.actionsFor = null; drawSession(); drawSummary(); drawStudents();
+    session = s; drawSession.actionsFor = null; drawSession(); drawSummary(); drawStudents(); drawMarkButton();
   });
   const offA = store.watchAttempts(sid, (list, err) => {
     if (err) toast(err.message, "err");
     rows = list || []; attemptsLoaded = true;
-    if (session) { drawSession(); drawSummary(); drawStudents(); }
+    if (session) { drawSession(); drawSummary(); drawStudents(); drawMarkButton(); }
   });
   const offSet = ctx.onSettings(() => { if (session) { drawSession.actionsFor = null; drawSession(); } });
   const t1 = setInterval(() => { if (session && phaseOf(session, now()) !== "ended") drawSession(); }, 1000);

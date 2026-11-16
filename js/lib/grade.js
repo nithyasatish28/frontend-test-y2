@@ -41,6 +41,12 @@ export function publishQuestion(q, salt) {
     });
     return { ...base, code: q.code || "", lang: q.lang || "js", anyOrder: !!q.anyOrder, keys };
   }
+  if (q.type === "subjective") {
+    // Nothing to hash: there is no key. The model answer stays with the instructor, exactly
+    // like a code question's solution, so it never reaches a student's browser.
+    return { ...base, code: q.code || "", codeLang: q.codeLang || "text",
+             rows: Number(q.rows) > 0 ? Number(q.rows) : 8, guidance: q.guidance || "" };
+  }
   // code
   const out = { ...base, lang: q.lang || "js", starter: q.starter || "", setup: q.setup || "", tests: q.tests || [], preview: q.preview || "" };
   if (q.lang === "terminal") out.terminal = q.terminal || {};
@@ -87,26 +93,44 @@ export function blanksMarks(q, salt, values) {
 export const qPoints = (q, session) => (Number(q?.points) > 0 ? Number(q.points) : session.points ?? 1);
 export function entryPoints(entry, session, q) {
   if (!entry) return 0;
-  return (entry.s === "c" ? qPoints(q, session) : 0) - (entry.h ? (session.hintPenalty ?? 0.5) : 0);
+  const hint = entry.h ? (session.hintPenalty ?? 0.5) : 0;
+  // A hand-marked answer carries whatever the instructor gave it, part marks included.
+  if (typeof entry.awarded === "number") return entry.awarded - hint;
+  return (entry.s === "c" ? qPoints(q, session) : 0) - hint;
 }
-export const isDone = (q, e) => !!e && (q.type === "code" ? e.s === "c" : e.s != null);
+export const written = e => String(e?.text || "").trim();
+// A written answer still waiting for the instructor to read it.
+export const needsMarking = (q, e) => q.type === "subjective" && !!written(e) && typeof e.awarded !== "number";
+export const isDone = (q, e) =>
+  !!e && (q.type === "code" ? e.s === "c" : q.type === "subjective" ? !!written(e) : e.s != null);
 export function stats(session, qmap = {}) {
   const qs = session.questions || [];
-  let score = 0, correct = 0, hints = 0, done = 0, max = 0;
+  let score = 0, correct = 0, hints = 0, done = 0, max = 0, pending = 0;
   for (const q of qs) {
     const e = qmap[q.id];
     score += entryPoints(e, session, q);
     max += qPoints(q, session);
-    if (e?.s === "c") correct++;
+    if (e?.s === "c" || (typeof e?.awarded === "number" && e.awarded >= qPoints(q, session))) correct++;
     if (e?.h) hints++;
     if (isDone(q, e)) done++;
+    if (needsMarking(q, e)) pending++;
   }
-  return { score: Math.round(score * 100) / 100, correct, hints, done, total: qs.length, max: Math.round(max * 100) / 100 };
+  return { score: Math.round(score * 100) / 100, correct, hints, done, total: qs.length, pending,
+           max: Math.round(max * 100) / 100 };
 }
 // One-letter status for the admin grid: c correct, w wrong, p code started, "" nothing; + "h" if a hint was used.
-export function cellCode(q, e) {
+// c correct · w wrong · p partly there · m written, waiting to be marked · "" nothing.
+export function cellCode(q, e, session) {
   if (!e) return "";
-  const base = e.s === "c" ? "c" : e.s === "w" ? "w" : q.type === "code" && (e.checked != null || (e.code != null && e.code !== q.starter)) ? "p" : "";
+  let base = "";
+  if (q.type === "subjective") {
+    const full = session ? qPoints(q, session) : Number(q.points) || 1;
+    base = typeof e.awarded === "number" ? (e.awarded >= full ? "c" : e.awarded > 0 ? "p" : "w")
+      : written(e) ? "m" : "";
+  } else {
+    base = e.s === "c" ? "c" : e.s === "w" ? "w"
+      : q.type === "code" && (e.checked != null || (e.code != null && e.code !== q.starter)) ? "p" : "";
+  }
   return base + (e.h ? "h" : "");
 }
 // What the student answered, as text.
@@ -114,5 +138,6 @@ export function answerText(q, e) {
   if (!e) return "";
   if (q.type === "mcq") return e.pick != null && e.s ? `${"ABCDEFGH"[e.pick]} · ${String(q.options[e.pick] || "").replace(/`/g, "")}` : "";
   if (q.type === "blanks") return e.s ? (e.vals || []).join("  |  ") : "";
+  if (q.type === "subjective") return e.text || "";
   return e.checked ?? e.code ?? "";
 }

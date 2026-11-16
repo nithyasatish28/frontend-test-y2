@@ -11,13 +11,14 @@ import { downloadSetCSV } from "./csv-questions.js";
 
 export let leaveGuard = null;
 
-const TYPES = { mcq: "Multiple choice", blanks: "Fill in the blanks", code: "Code" };
+const TYPES = { mcq: "Multiple choice", blanks: "Fill in the blanks", code: "Code", subjective: "Written answer" };
 const OPS = { equals: "is equal to", includes: "contains the text", matches: "matches the pattern", truthy: "is true", source: "Their code matches the pattern" };
 const clone = v => JSON.parse(JSON.stringify(v));
 const newQuestion = (type, section) => {
   const base = { id: "q" + randomId(8), section, type, title: "", prompt: "", hint: "" };
   if (type === "mcq") return { ...base, code: "", codeLang: "js", options: ["", "", "", ""], answer: 0 };
   if (type === "blanks") return { ...base, lang: "js", code: "const total = __1__ + 1;", blanks: [{ n: 1, accept: [""] }], anyOrder: false };
+  if (type === "subjective") return { ...base, code: "", codeLang: "text", rows: 8, guidance: "", expected: "", points: 5 };
   return { ...base, lang: "js", starter: "", solution: "", setup: "", preview: "App", tests: [] };
 };
 
@@ -35,6 +36,9 @@ export function problems(q) {
     if (!nums.length) out.push("has no blanks (write __1__ where a blank goes)");
     if (new Set(nums).size !== nums.length) out.push("uses the same blank number twice");
     for (const n of nums) { const b = (q.blanks || []).find(x => Number(x.n) === n); if (!b || !(b.accept || []).some(a => String(a).trim())) out.push(`blank ${n} has no accepted answer`); }
+  } else if (q.type === "subjective") {
+    if (!String(q.prompt || "").trim()) out.push("has no question for students to answer");
+    if (!String(q.expected || "").trim()) out.push("has no marking notes (only you see them)");
   } else if (q.lang !== "terminal") {
     if (!(q.tests || []).length) out.push("has no tests, so it can never be marked correct");
     if ((q.tests || []).some(t => t.op !== "source" && !String(t.expr || "").trim())) out.push("has a test with nothing to check");
@@ -144,8 +148,8 @@ export function mount(view, ctx, setId) {
         return `<div class="sec-row"><b>${String.fromCharCode(65 + i)}</b><input data-sec="${esc(s.id)}" value="${esc(s.title)}" aria-label="Part ${String.fromCharCode(65 + i)} name">
           <button class="icon-btn" data-secup="${i}" type="button" title="Move part up" ${i === 0 ? "disabled" : ""}>↑</button>
           <button class="icon-btn" data-secdel="${i}" type="button" title="${qs.length ? "Move or delete its questions first" : "Delete this part"}" ${qs.length || set.sections.length === 1 ? "disabled" : ""}>✕</button></div>
-          <div class="qitems">${qs.map(q => `<button class="qitem${q.id === sel ? " on" : ""}" data-id="${esc(q.id)}" type="button"><span class="lab">${q.label}</span><span class="ttl">${esc(q.title || "(no title)")}</span>${q.points ? `<span class="typ">${q.points} pt</span>` : ""}<span class="warnmark"></span><span class="typ">${q.type === "code" ? esc(q.lang === "react" ? "React" : q.lang === "python" ? "Python" : q.lang === "terminal" ? "Terminal" : "JS") : q.type === "mcq" ? "MCQ" : "Blanks"}</span></button>`).join("")}</div>
-          <div class="addrow"><button data-add="mcq" data-to="${esc(s.id)}" type="button">+ Multiple choice</button><button data-add="blanks" data-to="${esc(s.id)}" type="button">+ Blanks</button><button data-add="code" data-to="${esc(s.id)}" type="button">+ Code</button></div>`;
+          <div class="qitems">${qs.map(q => `<button class="qitem${q.id === sel ? " on" : ""}" data-id="${esc(q.id)}" type="button"><span class="lab">${q.label}</span><span class="ttl">${esc(q.title || "(no title)")}</span>${q.points ? `<span class="typ">${q.points} pt</span>` : ""}<span class="warnmark"></span><span class="typ">${q.type === "code" ? esc(q.lang === "react" ? "React" : q.lang === "python" ? "Python" : q.lang === "terminal" ? "Terminal" : "JS") : q.type === "mcq" ? "MCQ" : q.type === "subjective" ? "Written" : "Blanks"}</span></button>`).join("")}</div>
+          <div class="addrow"><button data-add="mcq" data-to="${esc(s.id)}" type="button">+ Multiple choice</button><button data-add="blanks" data-to="${esc(s.id)}" type="button">+ Blanks</button><button data-add="code" data-to="${esc(s.id)}" type="button">+ Code</button><button data-add="subjective" data-to="${esc(s.id)}" type="button">+ Written</button></div>`;
       }).join("")}
       <button class="btn ghost small" data-addsec type="button" style="margin-top:10px">+ Add a part</button>`;
     side.querySelectorAll("[data-k]").forEach(inp => inp.addEventListener("input", () => {
@@ -185,8 +189,7 @@ export function mount(view, ctx, setId) {
         <button class="btn ghost small" data-dupq type="button">Duplicate</button>
         <button class="btn ghost small" data-delq type="button">Delete</button>
       </div>
-      <div class="form-grid cols-3">
-        <label class="field"><span>Part</span><select data-part>${set.sections.map((s, i) => `<option value="${esc(s.id)}" ${s.id === q.section ? "selected" : ""}>${String.fromCharCode(65 + i)} · ${esc(s.title)}</option>`).join("")}</select></label>
+      <div class="form-grid cols-2">
         <label class="field"><span>Type</span><select data-type>${Object.entries(TYPES).map(([k, v]) => `<option value="${k}" ${k === q.type ? "selected" : ""}>${v}</option>`).join("")}</select></label>
         <label class="field"><span>Points <small>(empty = the set’s ${set.points ?? 1})</small></span><input data-points type="number" min="0.5" step="0.5" value="${q.points ?? ""}" placeholder="${set.points ?? 1}"></label>
       </div>
@@ -199,13 +202,6 @@ export function mount(view, ctx, setId) {
       q[inp.dataset.q] = inp.value; markDirty();
       if (inp.dataset.q === "title") { const it = view.querySelector(`.qitem[data-id="${q.id}"] .ttl`); if (it) it.textContent = inp.value || "(no title)"; }
     }));
-    form.querySelector("[data-part]").addEventListener("change", e => {
-      set.questions.splice(idx, 1);
-      q.section = e.target.value;
-      const last = set.questions.map(x => x.section).lastIndexOf(q.section);
-      set.questions.splice(last === -1 ? set.questions.length : last + 1, 0, q);
-      markDirty(); drawSide(); drawForm();
-    });
     form.querySelector("[data-type]").addEventListener("change", e => {
       const fresh = newQuestion(e.target.value, q.section);
       const keep = { id: q.id, title: q.title, prompt: q.prompt, hint: q.hint, ...(q.points ? { points: q.points } : {}) };
@@ -229,7 +225,10 @@ export function mount(view, ctx, setId) {
     }, "Click again to delete"));
     form.querySelector("[data-preview]").addEventListener("click", () => preview(q));
     const typed = form.querySelector("[data-typed]");
-    if (q.type === "mcq") mcqForm(typed, q); else if (q.type === "blanks") blanksForm(typed, q); else codeForm(typed, q);
+    if (q.type === "mcq") mcqForm(typed, q);
+    else if (q.type === "blanks") blanksForm(typed, q);
+    else if (q.type === "subjective") subjectiveForm(typed, q);
+    else codeForm(typed, q);
   }
   // Move within the same part; at the edge, move into the next/previous part.
   function move(dir) {
@@ -239,6 +238,38 @@ export function mount(view, ctx, setId) {
     if (other.section !== q.section) q.section = other.section;
     else [set.questions[i], set.questions[j]] = [set.questions[j], set.questions[i]];
     markDirty(); drawSide(); drawForm();
+  }
+
+  // A written answer: no key, no tests. Everything here except the prompt and the optional
+  // code block stays with you — students never receive the marking notes.
+  function subjectiveForm(box, q) {
+    box.innerHTML = `
+      <div class="form-grid cols-2">
+        <label class="field"><span>Code or text shown above the box <small>(optional)</small></span></label>
+        <label class="field"><span>How to colour it</span><select data-lang>
+          <option value="text">Plain text</option><option value="js">JavaScript / React</option>
+          <option value="python">Python</option><option value="shell">Terminal</option></select></label>
+      </div>
+      <textarea class="input mono" data-code rows="${Math.min(10, Math.max(2, (q.code || "").split("\n").length + 1))}"
+        placeholder="Paste anything they should read before answering.">${esc(q.code || "")}</textarea>
+      <div class="form-grid cols-2">
+        <label class="field"><span>A note under the question <small>(optional)</small></span>
+          <input data-guidance value="${esc(q.guidance || "")}" placeholder="e.g. Three or four sentences is plenty."></label>
+        <label class="field"><span>Size of the answer box</span>
+          <input data-rows type="number" min="3" max="30" value="${Number(q.rows) || 8}"> <small>lines</small></label>
+      </div>
+      <label class="field"><span>Marking notes <small>(only you ever see these)</small></span>
+        <textarea class="input" data-expected rows="6"
+          placeholder="What a full-mark answer covers. Shown beside each student's answer while you mark.">${esc(q.expected || "")}</textarea></label>
+      <p class="note">Written answers are never marked by the app. After the test, open the session and
+        press <b>Mark written answers</b> to read them and give marks — part marks included.</p>`;
+    box.querySelector("[data-lang]").value = q.codeLang || "text";
+    const bind = (sel, key, cast = v => v) => box.querySelector(sel).addEventListener("input", e => { q[key] = cast(e.target.value); markDirty(); });
+    bind("[data-code]", "code");
+    bind("[data-guidance]", "guidance");
+    bind("[data-expected]", "expected");
+    bind("[data-rows]", "rows", v => Number(v) || 8);
+    box.querySelector("[data-lang]").addEventListener("change", e => { q.codeLang = e.target.value; markDirty(); });
   }
 
   function mcqForm(box, q) {
