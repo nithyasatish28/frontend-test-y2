@@ -60,7 +60,15 @@ export class Test {
   }
 
   /* ─────────── Session state ─────────── */
-  setSession(s) { this.session = s; this.update(); }
+  setSession(s) {
+    // Turning live marking on mid-test changes what a written question shows, so the question
+    // on screen has to be drawn again — the rest of a session update leaves it alone on purpose,
+    // because redrawing while someone is typing would move their cursor.
+    const was = this.session ? !!this.session.liveMarking : null;
+    this.session = s;
+    if (was !== null && was !== !!s.liveMarking) this.liveChanged = true;
+    this.update();
+  }
   now() { return this.store.serverNow(); }
   endsAt() { const s = this.session; return s.startAt ? s.startAt + (s.minutes || 0) * 60000 : 0; }
   phase() {
@@ -194,8 +202,9 @@ export class Test {
     ["tabs", "scoreChip", "timeChip"].forEach(id => (el(id).hidden = false));
     if (!this.A.cur || !this.session.questions.some(q => q.id === this.A.cur)) this.A.cur = this.session.questions[0]?.id;
     if (first) this.show(this.A.status === "submitted" ? "scores" : this.view);
-    else if (this.view === "test") this.renderList();
+    else if (this.view === "test") { this.renderList(); if (this.liveChanged) this.renderQ(); }
     else this.show(this.view);
+    this.liveChanged = false;
     this.tick();
   }
   show(v) {
