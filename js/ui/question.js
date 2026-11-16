@@ -120,10 +120,15 @@ function blanks({ q, entry, session, isLocked, onChange, body, rerender, pts }) 
 
 // A written answer. Nothing is marked here: the instructor reads it afterwards, so there is
 // no key to send and nothing in the page that could give the answer away.
-function subjective({ q, entry, session, isLocked, onChange, body, pts }) {
+function subjective(ctx) {
+  const { q, entry, session, isLocked, onChange, body, rerender, pts } = ctx;
   if (entry.text == null) entry.text = "";
   const marked = typeof entry.awarded === "number";
-  const locked = isLocked() || marked;
+  // When the instructor marks as the test runs, each answer is handed in on its own, so they
+  // mark something that can no longer change. Otherwise answers stay open until the test ends.
+  const handIn = !!session.liveMarking;
+  const handed = !!entry.handed;
+  const locked = isLocked() || marked || handed;
   body.innerHTML = `
     ${q.code ? `<pre class="show">${highlight(q.code, q.codeLang || "text")}</pre>` : ""}
     ${q.guidance ? `<p class="note">${inline(q.guidance)}</p>` : ""}
@@ -133,9 +138,14 @@ function subjective({ q, entry, session, isLocked, onChange, body, pts }) {
     ${marked
       ? `<div class="result ${entry.awarded > 0 ? "good" : "bad"}">Your instructor gave this ${fmtPts(entry.awarded)} of ${fmtPts(pts)}.${
           entry.note ? ` <span class="note">${esc(entry.note)}</span>` : ""}</div>`
-      : isLocked()
-        ? `<div class="result wait">Handed in. Your instructor reads this one and marks it by hand, so it isn’t in your score yet.</div>`
-        : `<div class="note">Your instructor reads this one and marks it by hand. There is nothing to submit — what you type is saved as you go.</div>`}`;
+      : handed
+        ? `<div class="result wait">Handed in. Your instructor is marking this one — you can’t change it now.</div>`
+        : isLocked()
+          ? `<div class="result wait">Handed in. Your instructor reads this one and marks it by hand, so it isn’t in your score yet.</div>`
+          : handIn
+            ? `<div class="actions"><button class="btn" data-hand type="button">Hand in this answer</button>
+                 <span class="note">Your instructor marks these as they come in. Hand it in when you’re happy — you can’t change it afterwards.</span></div>`
+            : `<div class="note">Your instructor reads this one and marks it by hand. There is nothing to submit — what you type is saved as you go.</div>`}`;
   const ta = body.querySelector("[data-answer]"), count = body.querySelector("[data-count]");
   const show = () => {
     const w = written({ text: ta.value });
@@ -143,6 +153,22 @@ function subjective({ q, entry, session, isLocked, onChange, body, pts }) {
   };
   show();
   ta.addEventListener("input", () => { entry.text = ta.value; show(); onChange("text"); });
+
+  // Two presses, like every other thing here you can't undo.
+  const hand = body.querySelector("[data-hand]");
+  let armed = false;
+  hand?.addEventListener("click", () => {
+    if (!written(entry)) { show(); count.textContent = "Write something first."; return; }
+    if (!armed) {
+      armed = true; hand.classList.add("armed"); hand.textContent = "Sure? You can’t change it after this";
+      setTimeout(() => { if (armed && hand.isConnected) { armed = false; hand.classList.remove("armed"); hand.textContent = "Hand in this answer"; } }, 4000);
+      return;
+    }
+    if (isLocked()) return;
+    entry.handed = true;
+    onChange("answer");          // save it now, not on the next debounce
+    rerender();
+  });
 }
 
 function code(ctx) {

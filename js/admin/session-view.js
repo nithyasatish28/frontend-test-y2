@@ -70,7 +70,7 @@ export function mount(view, ctx, sid, isLiveTab = false) {
   // Marks are given in the student's browser, so they can be checked again here. See regrade.js.
   $("[data-mark]").addEventListener("click", () => {
     if (!session) return;
-    markingDialog(ctx, sid, session, rows, { canMark: phaseOf(session, now()) === "ended" || !!session.liveMarking });
+    markingDialog(ctx, sid, session, rows, { ended: phaseOf(session, now()) === "ended" });
   });
   $("[data-regrade]").addEventListener("click", () => {
     if (!session) return;
@@ -94,7 +94,7 @@ export function mount(view, ctx, sid, isLiveTab = false) {
     const has = subjectiveQuestions(session).length;
     b.hidden = !has;
     if (!has) return;
-    const left = unmarkedCount(session, rows);
+    const left = unmarkedCount(session, rows, phaseOf(session, now()) === "ended");
     b.textContent = left ? `Mark written answers (${left})` : "Written answers · all marked";
     b.className = left ? "btn small" : "btn ghost small";
   }
