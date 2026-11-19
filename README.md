@@ -87,7 +87,13 @@ Only the super admin can:
 
 Everyone else is an ordinary instructor: they get **Live**, **Sessions** and **Questions**, and that is all. There is no Instructors tab for them, and the rules refuse them the list as well, so they never see another instructor's name or email address — not in the page, and not through the browser console either.
 
-Sessions and question sets stay shared by everyone, as they always were: any instructor can run a test or edit a set.
+### Everyone's work is their own
+
+Each instructor sees only the question sets and sessions **they** made, and only their own students' answers. The super admin sees everything, so they can help when something goes wrong; next to another instructor's set or session they see whose it is.
+
+This is enforced by the database, not just hidden in the page: a question set carries the `ownerUid` of whoever made it, and the rules only hand over a document to its owner or the super admin.
+
+**The first time you open the Instructors tab after updating**, anything made before this — your existing sets and sessions — will be listed as having no owner, with a button to make them yours. Nobody else can see them until you do.
 
 **Make a second super admin.** If you are the only one and you lose your account, nobody can ever approve anyone again. On the **Instructors** tab, press *Make super admin* next to someone you trust with the whole app. Nobody can change their own role, so you cannot lock yourself out by accident.
 

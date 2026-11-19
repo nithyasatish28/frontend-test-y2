@@ -18,6 +18,8 @@ let cleanup = null, settingsSubs = new Set(), creating = null;
 ctx.onSettings = fn => { settingsSubs.add(fn); fn(ctx.settings); return () => settingsSubs.delete(fn); };
 // In demo mode the link has to say so too, or the student page would look for the real
 // Firebase project instead of this browser's demo data.
+// null means "everything", and only the super admin may ask for that.
+ctx.scope = () => (ctx.role === "super" ? null : ctx.user?.uid || "__nobody__");
 ctx.studentLink = sid => {
   const u = new URL("index.html" + (sid ? "?s=" + sid : ""), location.href);
   if (ctx.store && ctx.store.mode === "demo") u.searchParams.set("demo", "1");
@@ -55,7 +57,7 @@ async function boot() {
     // Only the super admin gets the Instructors tab; everyone else never sees the roster.
     el("tabInstructors").hidden = ctx.role !== "super";
     if (ctx.ownerUid === undefined) { try { ctx.ownerUid = await store.ownerUid(); } catch { ctx.ownerUid = null; } }
-    if (!ctx.unwatchSettings) ctx.unwatchSettings = store.watchSettings(s => { ctx.settings = s || {}; settingsSubs.forEach(fn => fn(ctx.settings)); });
+    if (!ctx.unwatchSettings) ctx.unwatchSettings = store.watchSettings(s => { ctx.settings = s || {}; settingsSubs.forEach(fn => fn(ctx.settings)); }, u.uid);
     // Only the super admin can read the request list, so only they get the count.
     if (ctx.role === "super" && !ctx.unwatchPending) ctx.unwatchPending = store.watchRequests(list => {
       const n = (list || []).length, b = el("pendingCount");

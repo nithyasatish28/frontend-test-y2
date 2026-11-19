@@ -131,7 +131,8 @@ export async function importOld(ctx) {
   const makeSession = (title, startMs, minutes, endMs, from) => {
     const salt = randomId(16);
     return {
-      title, setId: null, setTitle: OLD_SET.title + " (old app)", minutes, points: 1, hintPenalty: 0.5, salt, ...publishSet({ ...OLD_SET, questions: OLD_QUESTIONS }, salt),
+      title, setId: null, setTitle: OLD_SET.title + " (old app)", minutes, points: 1, hintPenalty: 0.5,
+      ownerUid: ctx.user.uid, ownerName: ctx.user.email || "", salt, ...publishSet({ ...OLD_SET, questions: OLD_QUESTIONS }, salt),
       status: "ended", startAt: store.time(startMs), endAt: store.time(endMs || startMs + minutes * 60000), createdAt: store.time(startMs), imported: from,
     };
   };

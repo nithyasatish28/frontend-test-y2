@@ -148,7 +148,7 @@ export function mount(view, ctx, sid, isLiveTab = false) {
     a.querySelector("[data-end]")?.addEventListener("click", e => confirmClick(e.currentTarget, () => act({ status: "ended", endAt: store.NOW }, "Ended. Every open test submits itself.")));
     a.querySelector("[data-del]")?.addEventListener("click", e => confirmClick(e.currentTarget, async () => {
       try {
-        if (active) await store.setSettings({ activeSessionId: null });
+        if (active) await store.setSettings({ activeSessionId: null }, ctx.user.uid);
         await store.deleteSession(sid); toast("Session deleted"); ctx.go("#/sessions");
       } catch (ex) { note("Couldn’t delete: " + ex.message); }
     }, "Click again: deletes all its results"));

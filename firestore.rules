@@ -45,6 +45,12 @@ service cloud.firestore {
              && get(/databases/$(db)/documents/meta/owner).data.uid == request.auth.uid)
         || get(/databases/$(db)/documents/admins/$(request.auth.uid)).data.get('role', '') == 'super');
     }
+    // Who made a thing. Written when it is created and never changed afterwards. Documents from
+    // before ownership existed have no field at all, which is why .get() with a default is used:
+    // they belong to nobody until the super admin adopts them.
+    function ownerOf(d) { return d.get('ownerUid', ''); }
+    function mine(d) { return signedIn() && ownerOf(d) == request.auth.uid; }
+
     function goodRole(d) {
       return d.get('role', 'instructor') == 'super' || d.get('role', 'instructor') == 'instructor';
     }
@@ -99,31 +105,52 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
-    // Question sets hold the answers, so only instructors can read them.
+    // Question sets hold the answers, so only instructors can read them — and only the
+    // instructor who wrote a set, or the super admin.
     match /questionSets/{id} {
-      allow read, write: if isAdmin();
+      allow get: if isSuper() || (isAdmin() && mine(resource.data));
+      // A plain instructor's query must say where ownerUid == their own uid; the super admin's
+      // need not, because isSuper() holds whatever the document is.
+      allow list: if isSuper() || (isAdmin() && mine(resource.data));
+      allow create: if isAdmin() && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if (isSuper() || (isAdmin() && mine(resource.data)))
+        && request.resource.data.ownerUid == resource.data.get('ownerUid', request.auth.uid);
+      allow delete: if isSuper() || (isAdmin() && mine(resource.data));
+    }
+
+    // Which session each instructor has open in their Live tab. One per instructor: a single
+    // shared value would have two people teaching at once fighting over it.
+    match /instructorSettings/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
     }
 
     // A session holds a copy of the questions with the answers hashed.
     match /sessions/{sid} {
-      allow get: if isAdmin() || (signedIn() && linkOpen(resource.data));
-      allow list, write: if isAdmin();
+      // Students still open any session whose link is live — that is what the link is for.
+      allow get: if isSuper() || (isAdmin() && mine(resource.data)) || (signedIn() && linkOpen(resource.data));
+      allow list: if isSuper() || (isAdmin() && mine(resource.data));
+      allow create: if isAdmin() && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if (isSuper() || (isAdmin() && mine(resource.data)))
+        && request.resource.data.ownerUid == resource.data.get('ownerUid', request.auth.uid);
+      allow delete: if isSuper() || (isAdmin() && mine(resource.data));
 
       function session() { return get(/databases/$(db)/documents/sessions/$(sid)).data; }
+      // An instructor reads the answers to their own sessions. Costs one extra document read.
+      function runsThis() { return isAdmin() && (isSuper() || ownerOf(session()) == request.auth.uid); }
 
       match /attempts/{uid} {
-        allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
-        allow create: if isAdmin()
+        allow read: if runsThis() || (signedIn() && request.auth.uid == uid);
+        allow create: if runsThis()
           || (signedIn() && request.auth.uid == uid
               && request.resource.data.uid == uid && goodName(request.resource.data)
               && canSave(session()));
-        allow update: if isAdmin()
+        allow update: if runsThis()
           || (signedIn() && request.auth.uid == uid
               && request.resource.data.uid == uid && goodName(request.resource.data)
               && resource.data.get('status', '') != 'submitted'
               && canSave(session()));
         // A student can take back their own entry before the test starts ("Not you?").
-        allow delete: if isAdmin()
+        allow delete: if runsThis()
           || (signedIn() && request.auth.uid == uid && resource.data.get('status', '') == 'waiting');
       }
     }

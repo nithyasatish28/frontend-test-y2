@@ -148,10 +148,13 @@ export async function create(role) {
       });
     },
 
-    watchSettings: cb => watch(() => get("settings/app"), cb),
-    setSettings: patch => write(() => set("settings/app", patch, true)),
+    watchSettings: (cb, uid) => watch(() => get("instructorSettings/" + uid), cb),
+    setSettings: (patch, uid) => write(() => set("instructorSettings/" + uid, patch, true)),
 
-    watchSets: cb => watch(() => col("questionSets").sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)), cb),
+    // owner: whose work to show; null is everything, for the super admin.
+    watchSets: (cb, owner) => watch(() => col("questionSets")
+      .filter(x => !owner || x.ownerUid === owner)
+      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)), cb),
     getSet: async id => { load(); return clone(get("questionSets/" + id)); },
     saveSet: (id, s) => write(() => {
       const { id: _drop, ...rest } = clone(s);
@@ -171,7 +174,22 @@ export async function create(role) {
     updateSession: (id, patch) => write(() => set("sessions/" + id, patch, true)),
     deleteSession: id => write(() => { for (const k of Object.keys(db.docs)) if (k.startsWith(`sessions/${id}/`)) del(k); del("sessions/" + id); }),
     watchSession: (id, cb) => watch(() => { const s = get("sessions/" + id); return s && !isAdmin() && !linkOpen(s) ? { __closed: true } : s; }, v => (v && v.__closed ? cb(null, fail("Firebase said no (permission denied).")) : cb(v))),
-    watchSessions: cb => watch(() => col("sessions").sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)), cb),
+    watchSessions: (cb, owner) => watch(() => col("sessions")
+      .filter(x => !owner || x.ownerUid === owner)
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)), cb),
+    async adoptUnowned(uid) {
+      return write(() => {
+        let sets = 0, sessions = 0;
+        for (const k of Object.keys(db.docs)) {
+          const isSet = k.startsWith("questionSets/"), isSess = /^sessions\/[^/]+$/.test(k);
+          if ((isSet || isSess) && !db.docs[k].ownerUid) {
+            db.docs[k].ownerUid = uid;
+            isSet ? sets++ : sessions++;
+          }
+        }
+        return { sets, sessions };
+      });
+    },
 
     watchAttempts: (sid, cb) => watch(() => col(`sessions/${sid}/attempts`), cb),
     watchAttempt: (sid, id, cb) => watch(() => get(`sessions/${sid}/attempts/${id}`), cb),

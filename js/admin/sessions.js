@@ -27,7 +27,8 @@ export function mount(view, ctx) {
     t.innerHTML = `<thead><tr><th>Date</th><th>Title</th><th>Question set</th><th>Status</th><th class="n">Students</th><th class="n">Submitted</th><th class="n">Average</th><th class="n">Top</th></tr></thead><tbody>` +
       list.map(s => {
         const st = s.stats || {};
-        return `<tr class="click" data-id="${esc(s.id)}" tabindex="0"><td>${s.createdAt ? dateTime(s.createdAt) : "–"}</td><td class="name">${esc(s.title || "Untitled")}</td><td>${esc(s.setTitle || "")}</td><td>${s.imported ? `<span class="spill off">Imported</span>` : phasePill(s, ctx.settings.activeSessionId === s.id)}</td>
+        return `<tr class="click" data-id="${esc(s.id)}" tabindex="0"><td>${s.createdAt ? dateTime(s.createdAt) : "–"}</td><td class="name">${esc(s.title || "Untitled")}${
+            ctx.role === "super" && s.ownerUid && s.ownerUid !== ctx.user.uid ? `<div class="note">${esc(s.ownerName || "another instructor")}</div>` : ""}</td><td>${esc(s.setTitle || "")}</td><td>${s.imported ? `<span class="spill off">Imported</span>` : phasePill(s, ctx.settings.activeSessionId === s.id)}</td>
           <td class="n">${st.joined ?? "–"}</td><td class="n">${st.submitted ?? "–"}</td><td class="n">${st.joined ? fmtPts(st.avg) + " / " + fmtPts(st.max ?? (s.questions || []).length) : "–"}</td><td class="n">${st.joined ? fmtPts(st.top) : "–"}</td></tr>`;
       }).join("") + "</tbody>";
     t.querySelectorAll("tr[data-id]").forEach(tr => {
@@ -36,7 +37,7 @@ export function mount(view, ctx) {
       tr.addEventListener("keydown", e => { if (e.key === "Enter") open(); });
     });
   };
-  const offSessions = store.watchSessions((l, err) => { if (err) toast(err.message, "err"); list = l; draw(); });
+  const offSessions = store.watchSessions((l, err) => { if (err) toast(err.message, "err"); list = l; draw(); }, ctx.scope());
   const offSettings = ctx.onSettings(draw);
   return () => { offSessions(); offSettings(); };
 }
@@ -45,7 +46,7 @@ export function mount(view, ctx) {
 export async function newSession(ctx) {
   const { store } = ctx;
   let sets = [];
-  const off = store.watchSets(l => { sets = l; fill(); });
+  const off = store.watchSets(l => { sets = l; fill(); }, ctx.scope());
   const today = new Date().toLocaleDateString([], { day: "numeric", month: "short" });
   const d = dialog(`
     <form class="dlg-body" novalidate>
@@ -104,10 +105,11 @@ export async function newSession(ctx) {
       const now = f.now.checked;
       const id = await store.createSession({
         title: f.stitle.value.trim(), setId: s.id, setTitle: s.title || "", minutes: m,
-        points: s.points ?? 1, hintPenalty: s.hintPenalty ?? 0.5, liveMarking: !!f.live.checked, salt, ...pub,
+        points: s.points ?? 1, hintPenalty: s.hintPenalty ?? 0.5, liveMarking: !!f.live.checked,
+        ownerUid: ctx.user.uid, ownerName: ctx.user.email || "", salt, ...pub,
         status: now ? "running" : "waiting", ...(now ? { startAt: store.NOW } : {}), stats: { joined: 0, submitted: 0, avg: 0, top: 0 },
       });
-      await store.setSettings({ activeSessionId: id });                       // show it in the Live tab
+      await store.setSettings({ activeSessionId: id }, ctx.user.uid);                       // show it in the Live tab
       d.close(id);
       ctx.go("#/session/" + id);
     } catch (ex) { err.textContent = ex.message; btn.disabled = false; }

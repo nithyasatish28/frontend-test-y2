@@ -32,15 +32,16 @@ export function mount(view, ctx) {
       const qs = s.questions || [], counts = {};
       qs.forEach(q => { const k = q.type === "code" ? (q.lang === "python" ? "Python" : q.lang === "terminal" ? "terminal" : q.lang === "react" ? "React" : "JavaScript") + " code" : TYPE_NAMES[q.type]; counts[k] = (counts[k] || 0) + 1; });
       return `<a class="set-card" href="#/questions/${esc(s.id)}"><h3>${esc(s.title || "Untitled")}</h3>
-        <div class="meta">${qs.length} question${qs.length === 1 ? "" : "s"} · ${s.minutes || 45} min${s.updatedAt ? " · edited " + day(s.updatedAt) : ""}</div>
+        <div class="meta">${qs.length} question${qs.length === 1 ? "" : "s"} · ${s.minutes || 45} min${s.updatedAt ? " · edited " + day(s.updatedAt) : ""}${
+          ctx.role === "super" && s.ownerUid && s.ownerUid !== ctx.user.uid ? ` · <b>${esc(s.ownerName || "another instructor")}</b>` : ""}</div>
         ${s.description ? `<div>${esc(s.description)}</div>` : ""}
         <div class="meta">${Object.entries(counts).map(([k, n]) => `${n} ${esc(k)}`).join(" · ")}</div></a>`;
     }).join("") : `<div class="card"><p style="margin:0">No question sets yet. Start from a <b>starter set</b> (the original JS + React test, or a Python sample), or make a new one.</p></div>`;
   };
-  const off = store.watchSets((l, err) => { if (err) toast(err.message, "err"); sets = l; draw(); });
+  const off = store.watchSets((l, err) => { if (err) toast(err.message, "err"); sets = l; draw(); }, ctx.scope());
 
   $("[data-new]").addEventListener("click", async () => {
-    try { const id = await store.saveSet(null, blankSet()); ctx.go("#/questions/" + id); } catch (e) { toast(e.message, "err"); }
+    try { const id = await store.saveSet(null, { ...blankSet(), ownerUid: ctx.user.uid, ownerName: ctx.user.email || "" }); ctx.go("#/questions/" + id); } catch (e) { toast(e.message, "err"); }
   });
   $("[data-starter]").addEventListener("click", async () => {
     const d = dialog(`<div class="dlg-body"><h2>Add a starter set</h2><p class="note" style="margin-top:0">This makes your own copy, which you can change.</p>
@@ -48,7 +49,7 @@ export function mount(view, ctx) {
       </div><div class="dlg-foot"><button class="btn ghost" data-close type="button">Cancel</button></div>`);
     const pick = await d.done;
     if (pick == null || pick === "") return;
-    try { const id = await store.saveSet(null, JSON.parse(JSON.stringify(STARTER_SETS[Number(pick)]))); toast("Added"); ctx.go("#/questions/" + id); }
+    try { const id = await store.saveSet(null, { ...JSON.parse(JSON.stringify(STARTER_SETS[Number(pick)])), ownerUid: ctx.user.uid, ownerName: ctx.user.email || "" }); toast("Added"); ctx.go("#/questions/" + id); }
     catch (e) { toast(e.message, "err"); }
   });
   $("[data-tpl]").addEventListener("click", downloadTemplate);
@@ -63,7 +64,7 @@ export function mount(view, ctx) {
       const set = data.questionSet || data;
       if (!Array.isArray(set.questions) || !Array.isArray(set.sections)) throw new Error("That file isn’t a question set. Use a file from “Download as a file” in the question editor.");
       const { id: _x, createdAt: _c, updatedAt: _u, ...clean } = set;
-      const id = await store.saveSet(null, { ...clean, title: (clean.title || "Imported set") });
+      const id = await store.saveSet(null, { ...clean, title: (clean.title || "Imported set"), ownerUid: ctx.user.uid, ownerName: ctx.user.email || "" });
       toast("Imported"); ctx.go("#/questions/" + id);
     } catch (ex) { toast(ex.message.startsWith("Unexpected") ? "That file isn’t valid JSON." : ex.message, "err"); }
   });

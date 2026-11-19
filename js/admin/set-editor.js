@@ -93,7 +93,7 @@ export function mount(view, ctx, setId) {
     $("[data-dlcsv]").addEventListener("click", () => downloadSetCSV(clean(set)));
     $("[data-dl]").addEventListener("click", () => download(`${(set.title || "questions").replace(/[^\p{L}\p{N}]+/gu, "-").toLowerCase()}.json`, JSON.stringify({ format: "class-test-question-set", version: 1, questionSet: set }, null, 2), "application/json"));
     $("[data-dup]").addEventListener("click", async () => {
-      try { const id = await store.saveSet(null, { ...clone(set), title: (set.title || "Untitled") + " (copy)" }); toast("Copied. You’re now editing the copy."); dirty = false; ctx.go("#/questions/" + id); }
+      try { const id = await store.saveSet(null, { ...clone(set), title: (set.title || "Untitled") + " (copy)", ownerUid: ctx.user.uid, ownerName: ctx.user.email || "" }); toast("Copied. You’re now editing the copy."); dirty = false; ctx.go("#/questions/" + id); }
       catch (e) { toast(e.message, "err"); }
     });
     $("[data-delset]").addEventListener("click", e => confirmClick(e.currentTarget, async () => {
@@ -122,7 +122,7 @@ export function mount(view, ctx, setId) {
     saving = true; drawState();
     // drop accepted answers for blanks that are no longer in the code
     for (const q of set.questions) if (q.type === "blanks") { const nums = blankNumbers(q.code); q.blanks = (q.blanks || []).filter(b => nums.includes(Number(b.n))); }
-    try { await store.saveSet(setId, clean(set)); dirty = false; toast("Saved"); }
+    try { await store.saveSet(setId, { ...clean(set), ownerUid: set.ownerUid || ctx.user.uid, ownerName: set.ownerName || ctx.user.email || "" }); dirty = false; toast("Saved"); }
     catch (e) { toast("Couldn’t save: " + e.message, "err"); }
     saving = false; drawState();
   }

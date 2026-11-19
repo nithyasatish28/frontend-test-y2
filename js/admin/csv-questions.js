@@ -224,6 +224,7 @@ export async function uploadCSV(ctx, file) {
     btn.disabled = true;
     try {
       const id = await ctx.store.saveSet(null, {
+        ownerUid: ctx.user.uid, ownerName: ctx.user.email || "",
         title: $("[data-title]").value.trim(), description: `Imported from ${file.name}`,
         minutes: Math.round(Number($("[data-min]").value)) || 45, points: Number($("[data-pts]").value) || 1, hintPenalty: Number($("[data-hint]").value) || 0,
         sections, questions,

@@ -21,6 +21,7 @@ export function mount(view, ctx) {
       <p class="note">Nobody else sees this page: an instructor you let in gets Live, Sessions and Questions, and
         never the list of who else is here.</p>
     </section>
+    <section class="card" data-orphans hidden></section>
     <section class="card" data-reqs hidden></section>
     <section class="card">
       <h2>Instructors</h2>
@@ -94,6 +95,34 @@ export function mount(view, ctx) {
       catch (e) { toast(e.message, "err"); }
     }, "Click again: they lose access")));
   };
+
+  // Everything made before instructors had their own work belongs to nobody. Only the super
+  // admin can see it (their lists aren't filtered), so only they can hand it out.
+  async function drawOrphans() {
+    const box = view.querySelector("[data-orphans]");
+    let sets = [], sessions = [];
+    try {
+      sets = await new Promise(r => { const off = store.watchSets(l => { off(); r(l || []); }, null); });
+      sessions = await new Promise(r => { const off = store.watchSessions(l => { off(); r(l || []); }, null); });
+    } catch { return; }
+    const loose = sets.filter(x => !x.ownerUid).length + sessions.filter(x => !x.ownerUid).length;
+    box.hidden = !loose;
+    if (!loose) return;
+    box.innerHTML = `
+      <h2>${loose} thing${loose === 1 ? "" : "s"} with no owner</h2>
+      <p class="sub">${sets.filter(x => !x.ownerUid).length} question set(s) and ${sessions.filter(x => !x.ownerUid).length} session(s)
+        were made before each instructor had their own. Nobody but you can see them. Take them, and they appear in your lists as normal.</p>
+      <div class="actions"><button class="btn" data-adopt type="button">Make these mine</button></div>`;
+    box.querySelector("[data-adopt]").addEventListener("click", e => confirmClick(e.currentTarget, async () => {
+      e.currentTarget.disabled = true;
+      try {
+        const n = await store.adoptUnowned(ctx.user.uid);
+        toast(`${n.sets} question set(s) and ${n.sessions} session(s) are yours now`);
+        drawOrphans();
+      } catch (ex) { toast(ex.message, "err"); e.currentTarget.disabled = false; }
+    }, "Click again: they all become yours"));
+  }
+  drawOrphans();
 
   const offA = store.watchAdmins((list, err) => { if (err) return toast(err.message, "err"); admins = list || []; drawAdmins(); });
   // Only the super admin is allowed to read the waiting list.

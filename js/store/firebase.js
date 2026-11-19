@@ -147,11 +147,16 @@ export async function create(role) {
     }),
 
     /* ─────────── Settings ─────────── */
-    watchSettings: cb => watchDoc(d("settings", "app"), cb),
-    setSettings: wrap(patch => F.setDoc(d("settings", "app"), patch, { merge: true })),
+    // Per instructor, not shared: two people teaching at once each have their own Live tab.
+    watchSettings: (cb, uid) => watchDoc(d("instructorSettings", uid), cb),
+    setSettings: wrap((patch, uid) => F.setDoc(d("instructorSettings", uid), patch, { merge: true })),
 
     /* ─────────── Question sets ─────────── */
-    watchSets: cb => watchCol(F.query(c("questionSets"), F.orderBy("updatedAt", "desc")), cb),
+    // owner: whose work to show. null means everything, which only the super admin may ask for —
+    // a plain instructor's query has to name them, or the rules refuse the whole list.
+    watchSets: (cb, owner) => watchCol(owner
+      ? F.query(c("questionSets"), F.where("ownerUid", "==", owner), F.orderBy("updatedAt", "desc"))
+      : F.query(c("questionSets"), F.orderBy("updatedAt", "desc")), cb),
     getSet: wrap(async id => data(await F.getDoc(d("questionSets", id)))),
     saveSet: wrap(async (id, set) => {
       const { id: _drop, ...rest } = set;
@@ -190,7 +195,25 @@ export async function create(role) {
       return ref.id;
     }),
     watchSession: (id, cb) => watchDoc(d("sessions", id), cb),
-    watchSessions: cb => watchCol(F.query(c("sessions"), F.orderBy("createdAt", "desc"), F.limit(300)), cb),
+    watchSessions: (cb, owner) => watchCol(owner
+      ? F.query(c("sessions"), F.where("ownerUid", "==", owner), F.orderBy("createdAt", "desc"), F.limit(300))
+      : F.query(c("sessions"), F.orderBy("createdAt", "desc"), F.limit(300)), cb),
+
+    // One-off: give everything made before ownership existed to whoever runs this.
+    adoptUnowned: wrap(async uid => {
+      let sets = 0, sessions = 0;
+      for (const [name, col] of [["questionSets", "questionSets"], ["sessions", "sessions"]]) {
+        const snap = await F.getDocs(c(col));
+        const orphans = snap.docs.filter(x => !x.get("ownerUid"));
+        for (let i = 0; i < orphans.length; i += 400) {
+          const b = F.writeBatch(db);
+          orphans.slice(i, i + 400).forEach(x => b.update(x.ref, { ownerUid: uid }));
+          await b.commit();
+        }
+        if (name === "questionSets") sets = orphans.length; else sessions = orphans.length;
+      }
+      return { sets, sessions };
+    }),
 
     /* ─────────── Attempts ─────────── */
     watchAttempts: (sid, cb) => watchCol(c("sessions", sid, "attempts"), cb),
