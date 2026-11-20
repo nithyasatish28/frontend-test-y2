@@ -1,6 +1,6 @@
 // Every session, newest first, and the "New session" dialog.
 import { esc, fmtPts, dateTime, uid as randomId, toast } from "../lib/util.js";
-import { publishSet } from "../lib/grade.js";
+import { publishSet, sessionSecret } from "../lib/grade.js";
 import { dialog } from "./dialog.js";
 import { importOld } from "./import-old.js";
 
@@ -58,6 +58,9 @@ export async function newSession(ctx) {
         <label class="field"><span>Time limit (minutes)</span><input name="minutes" type="number" min="1" max="300" required></label>
         <label class="field"><span>&nbsp;</span><span class="switch"><input type="checkbox" name="now"> Start the timer right away</span></label>
       </div>
+      <label class="field"><span>&nbsp;</span><span class="switch"><input type="checkbox" name="exam"> Exam: don’t show students whether they were right</span></label>
+      <p class="note" style="margin:-6px 0 0">On, nothing that could give an answer away is sent to the student's browser — no answer keys, no expected values for the code checks.
+        Students answer and submit; you mark afterwards and release the results. Off, the test marks itself as they go, which is what you want for practice.</p>
       <label class="field" data-livewrap hidden><span>&nbsp;</span><span class="switch"><input type="checkbox" name="live"> Mark written answers while the test is running</span></label>
       <p class="note" data-livenote hidden style="margin:-6px 0 0">Off: you mark each student once they submit, or once the test ends — the usual way.
         On: their answers appear in <b>Mark written answers</b> as they type, so you can mark a long paper as it comes in. They can still edit after you mark, and you'll be told when they have.</p>
@@ -101,14 +104,20 @@ export async function newSession(ctx) {
     btn.disabled = true;
     try {
       const salt = randomId(16);
-      const pub = publishSet(s, salt);
+      const exam = !!f.exam.checked;
+      const pub = publishSet(s, salt, { exam });
       const now = f.now.checked;
       const id = await store.createSession({
         title: f.stitle.value.trim(), setId: s.id, setTitle: s.title || "", minutes: m,
-        points: s.points ?? 1, hintPenalty: s.hintPenalty ?? 0.5, liveMarking: !!f.live.checked,
-        ownerUid: ctx.user.uid, ownerName: ctx.user.email || "", salt, ...pub,
+        points: s.points ?? 1, hintPenalty: s.hintPenalty ?? 0.5, partMarks: !!s.partMarks,
+        liveMarking: !!f.live.checked,
+        ownerUid: ctx.user.uid, ownerName: ctx.user.email || "", examMode: exam,
+        // An exam keeps the salt back with everything else: with no keys to compare, it is useless
+        // to a student and only tells them how the real copy was built.
+        ...(exam ? {} : { salt }), ...pub,
         status: now ? "running" : "waiting", ...(now ? { startAt: store.NOW } : {}), stats: { joined: 0, submitted: 0, avg: 0, top: 0 },
       });
+      if (exam) await store.saveSecret(id, sessionSecret(s, salt));
       await store.setSettings({ activeSessionId: id }, ctx.user.uid);                       // show it in the Live tab
       d.close(id);
       ctx.go("#/session/" + id);

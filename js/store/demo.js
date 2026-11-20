@@ -173,6 +173,8 @@ export async function create(role) {
     }),
     updateSession: (id, patch) => write(() => set("sessions/" + id, patch, true)),
     deleteSession: id => write(() => { for (const k of Object.keys(db.docs)) if (k.startsWith(`sessions/${id}/`)) del(k); del("sessions/" + id); }),
+    async saveSecret(sid, data) { return write(() => set(`sessions/${sid}/secret/keys`, data)); },
+    async getSecret(sid) { load(); return clone(get(`sessions/${sid}/secret/keys`)); },
     watchSession: (id, cb) => watch(() => { const s = get("sessions/" + id); return s && !isAdmin() && !linkOpen(s) ? { __closed: true } : s; }, v => (v && v.__closed ? cb(null, fail("Firebase said no (permission denied).")) : cb(v))),
     watchSessions: (cb, owner) => watch(() => col("sessions")
       .filter(x => !owner || x.ownerUid === owner)

@@ -12,7 +12,7 @@
 import { esc, fmtPts } from "../lib/util.js";
 import { markdown, inline } from "../lib/markdown.js";
 import { highlight } from "../lib/highlight.js";
-import { mcqRight, blanksMarks, qPoints, written } from "../lib/grade.js";
+import { mcqRight, blanksMarks, qPoints, written, partPoints } from "../lib/grade.js";
 import { createEditor } from "./editor.js";
 import { runCode, checkCode, checkNames } from "../runner/index.js";
 
@@ -24,7 +24,8 @@ export function renderQuestion(card, opts) {
   const status = typeof entry.awarded === "number"
     ? `<span class="pill ${entry.awarded > 0 ? "status-correct" : "status-wrong"}">Marked · ${fmtPts(entry.awarded)} of ${fmtPts(pts)}</span>`
     : entry.s === "c" ? `<span class="pill status-correct">Correct · +${fmtPts(pts)}</span>`
-    : entry.s === "w" ? `<span class="pill status-wrong">Not correct</span>` : "";
+    : entry.s === "w" ? `<span class="pill status-wrong">Not correct</span>`
+    : entry.handed ? `<span class="pill">Answered</span>` : "";
   card.innerHTML = `
     <div class="qhead"><span class="pill">${esc(q.label || "")}</span>${meta.sectionTitle ? `<span>Part ${esc(q.sectionKey || "")} · ${esc(meta.sectionTitle)}</span>` : ""}${meta.total ? `<span>Question ${meta.index + 1} of ${meta.total}</span>` : ""}<span>${fmtPts(pts)} point${pts === 1 ? "" : "s"}</span>${status}</div>
     <h2>${esc(q.title)}</h2>
@@ -67,14 +68,18 @@ function hint(box, ctx, pen) {
 }
 
 function mcq({ q, entry, session, isLocked, onChange, body, rerender, pts }) {
-  const done = entry.s != null || isLocked();
+  const done = entry.s != null || !!entry.handed || isLocked();
+  const right = session.resultsReleased ? session.answers?.[q.id]?.pick ?? null : null;
   body.innerHTML = (q.code ? `<pre class="show">${highlight(q.code, q.codeLang || "js")}</pre>` : "") +
     `<div class="opts">${q.options.map((o, i) => {
       let cls = "opt";
       if (entry.s && entry.pick === i) cls += entry.s === "c" ? " picked-good" : " picked-bad";
+      // After an exam is released, the right one is shown even if they didn't pick it.
+      if (right != null && i === right && entry.pick !== i) cls += " was-right";
       return `<button class="${cls}" type="button" data-i="${i}" aria-pressed="${entry.pick === i}" ${done ? "disabled" : ""}><span class="l">${LETTERS[i]}</span><span class="x">${inline(o)}</span></button>`;
     }).join("")}</div>
-    ${entry.s ? `<div class="result ${entry.s === "c" ? "good" : "bad"}">${entry.s === "c" ? `Correct! +${fmtPts(pts)}` : "Not correct. Your answer is locked in."}</div>` :
+    ${entry.s ? `<div class="result ${entry.s === "c" ? "good" : "bad"}">${entry.s === "c" ? `Correct! +${fmtPts(pts)}` : `Not correct.${right != null ? ` The answer was ${LETTERS[right]}.` : " Your answer is locked in."}`}</div>` :
+      entry.handed ? `<div class="result wait">Answered and locked in. You'll see how you did when your instructor releases the results.</div>` :
       isLocked() ? `<div class="result bad">The test is over.</div>` :
       `<div class="actions"><button class="btn" data-submit type="button" ${entry.pick == null ? "disabled" : ""}>Submit answer</button><span class="note">One try only.</span></div>`}`;
   body.querySelectorAll(".opt").forEach(b => b.addEventListener("click", () => {
@@ -83,16 +88,20 @@ function mcq({ q, entry, session, isLocked, onChange, body, rerender, pts }) {
   }));
   body.querySelector("[data-submit]")?.addEventListener("click", () => {
     if (entry.pick == null || entry.s || isLocked()) return;
-    entry.s = mcqRight(q, session.salt, entry.pick) ? "c" : "w";
+    // No key reached this browser in an exam, so there is nothing to mark against: the answer
+    // is simply locked in, and the instructor marks it afterwards.
+    if (session.examMode) entry.handed = true;
+    else entry.s = mcqRight(q, session.salt, entry.pick) ? "c" : "w";
     onChange("answer"); rerender();
   });
 }
 
 function blanks({ q, entry, session, isLocked, onChange, body, rerender, pts }) {
+  const accept = session.resultsReleased ? session.answers?.[q.id]?.accept ?? null : null;
   const parts = q.code.split(/__(\d+)__/);
   const n = (parts.length - 1) / 2;
   if (!Array.isArray(entry.vals) || entry.vals.length !== n) entry.vals = Array.from({ length: n }, (_, i) => (entry.vals || [])[i] || "");
-  const done = entry.s != null || isLocked();
+  const done = entry.s != null || !!entry.handed || isLocked();
   let html = "";
   parts.forEach((p, i) => {
     if (i % 2 === 0) { html += highlight(p, q.lang || "js"); return; }
@@ -100,7 +109,10 @@ function blanks({ q, entry, session, isLocked, onChange, body, rerender, pts }) 
     html += `<span class="num">${p}</span><input data-k="${k}" class="${mark}" value="${esc(entry.vals[k])}" aria-label="Blank ${p}" spellcheck="false" autocapitalize="off" autocomplete="off" ${done ? "disabled" : ""} style="width:${Math.max(8, (entry.vals[k] || "").length + 3)}ch">`;
   });
   body.innerHTML = `<pre class="show blanks">${html}</pre>
-    ${entry.s ? `<div class="result ${entry.s === "c" ? "good" : "bad"}">${entry.s === "c" ? `All blanks right! +${fmtPts(pts)}` : `Not all right: ${(entry.marks || []).filter(Boolean).length} of ${n} blanks. Your answers are locked in.`}</div>` :
+    ${entry.s ? `<div class="result ${entry.s === "c" ? "good" : "bad"}">${entry.s === "c" ? `All blanks right! +${fmtPts(pts)}` : `Not all right: ${(entry.marks || []).filter(Boolean).length} of ${n} blanks.${
+        partPoints(entry, session, q) > 0 ? ` +${fmtPts(partPoints(entry, session, q))} of ${fmtPts(pts)}.` : ""}`}${
+        accept ? `<div class="note" style="margin-top:6px">Accepted: ${accept.map((a, i) => `<b>${i + 1}</b> ${esc(a.join(" / "))}`).join(" · ")}</div>` : ""}</div>` :
+      entry.handed ? `<div class="result wait">Answered and locked in. You'll see how you did when your instructor releases the results.</div>` :
       isLocked() ? `<div class="result bad">The test is over.</div>` :
       `<div class="actions"><button class="btn" data-submit type="button">Submit answers</button><span class="note">One try only. Every blank must be right.</span></div>`}`;
   body.querySelectorAll("input").forEach(inp => inp.addEventListener("input", () => {
@@ -112,8 +124,11 @@ function blanks({ q, entry, session, isLocked, onChange, body, rerender, pts }) 
       const note = document.createElement("p"); note.className = "note bad-text"; note.textContent = "Fill in every blank first.";
       e.currentTarget.parentElement.append(note); setTimeout(() => note.remove(), 2500); return;
     }
-    entry.marks = blanksMarks(q, session.salt, entry.vals);
-    entry.s = entry.marks.every(Boolean) ? "c" : "w";
+    if (session.examMode) entry.handed = true;
+    else {
+      entry.marks = blanksMarks(q, session.salt, entry.vals);
+      entry.s = entry.marks.every(Boolean) ? "c" : "w";
+    }
     onChange("answer"); rerender();
   });
 }
@@ -172,25 +187,30 @@ function subjective(ctx) {
 }
 
 function code(ctx) {
-  const { q, entry, isLocked, onChange, body, pts } = ctx;
+  const { q, entry, session, isLocked, onChange, body, pts } = ctx;
   if (entry.code == null) entry.code = q.starter || "";
   const react = q.lang === "react", term = q.lang === "terminal", py = q.lang === "python";
   const names = checkNames(q);
+  // In an exam the expected values never reached this browser, so there is nothing to check
+  // against here. Run still works: it is their own code, printing their own output.
+  const exam = !!session.examMode;
   body.innerHTML = `
     <div class="bench">
       <div class="ed"></div>
       ${py ? `<details class="stdin"${q.stdin ? " open" : ""}><summary>Input for <code>input()</code></summary><textarea rows="3" spellcheck="false" placeholder="One line for each input() call">${esc(q.stdin || "")}</textarea></details>` : ""}
       <div class="actions">
         <button class="btn ghost" data-run type="button">Run</button>
-        <button class="btn" data-check type="button" ${isLocked() || !names.length ? "disabled" : ""}>Check my answer</button>
+        ${exam ? "" : `<button class="btn" data-check type="button" ${isLocked() || !names.length ? "disabled" : ""}>Check my answer</button>`}
         <button class="btn ghost" data-reset type="button" ${isLocked() ? "disabled" : ""}>Reset code</button>
-        <span class="note">Ctrl + Enter checks. ${entry.s === "c" ? "Already correct: you can keep improving it." : `+${fmtPts(pts)} the first time every check passes.`}</span>
+        <span class="note">${exam
+          ? "Your instructor runs the checks after the test. Use Run to try your code as you go."
+          : `Ctrl + Enter checks. ${entry.s === "c" ? "Already correct: you can keep improving it." : `+${fmtPts(pts)} the first time every check passes.`}`}</span>
       </div>
       <div class="panes ${react ? "two" : ""}">
         ${react ? `<div class="pane"><h4>Preview</h4><div class="preview"></div></div>` : ""}
         <div class="pane"><h4>${term ? "Terminal" : "Console"}</h4><div class="console"></div></div>
       </div>
-      <div class="pane"><h4>Checks</h4><ul class="checks">${names.map(() => `<li class="wait"><span class="i">○</span><span></span></li>`).join("") || `<li class="wait"><span class="i">–</span><span>This question has no checks yet.</span></li>`}</ul></div>
+      <div class="pane"><h4>Checks${exam ? " your instructor will run" : ""}</h4><ul class="checks">${names.map(() => `<li class="wait"><span class="i">○</span><span></span></li>`).join("") || `<li class="wait"><span class="i">–</span><span>This question has no checks yet.</span></li>`}</ul></div>
     </div>`;
   body.querySelectorAll(".checks li").forEach((li, i) => { if (names[i]) li.lastElementChild.textContent = names[i]; });
   const con = body.querySelector(".console"), preview = body.querySelector(".preview"), stdin = body.querySelector(".stdin textarea");
@@ -201,7 +221,7 @@ function code(ctx) {
   const ed = createEditor(body.querySelector(".ed"), {
     value: entry.code, lang: q.lang, readOnly: isLocked(), label: `Your code for ${q.label}`,
     onChange: v => { entry.code = v; onChange("code"); },
-    onCtrlEnter: () => check(),
+    onCtrlEnter: () => { if (!exam) check(); },
   });
   log("info", term ? "Press Run to play your commands in the pretend terminal. Press Check to test them."
     : react ? "Press Run to see your component in the Preview. Press Check to test it."
@@ -235,14 +255,16 @@ function code(ctx) {
       onChange("check", { all, firstPass });
     }
     con.innerHTML = "";
-    log(all ? "log" : "info", all ? (firstPass ? `All checks pass! +${fmtPts(pts)}` : "All checks pass.") : `${passed} of ${res.length} checks pass. Read the red lines in Checks.`);
+    const part = partPoints(entry, session, q);
+    log(all ? "log" : "info", all ? (firstPass ? `All checks pass! +${fmtPts(pts)}` : "All checks pass.")
+      : `${passed} of ${res.length} checks pass${part > 0 ? `, worth ${fmtPts(part)} of ${fmtPts(pts)} so far` : ""}. Read the red lines in Checks.`);
     if (all) { const head = body.closest(".qcard")?.querySelector(".qhead"); if (head && !head.querySelector(".status-correct")) head.insertAdjacentHTML("beforeend", `<span class="pill status-correct">Correct · +${fmtPts(pts)}</span>`); }
     if (react) run(true);
     btn.disabled = isLocked();
     busy = false;
   };
   body.querySelector("[data-run]").addEventListener("click", () => run(false));
-  body.querySelector("[data-check]").addEventListener("click", check);
+  body.querySelector("[data-check]")?.addEventListener("click", check);
   body.querySelector("[data-reset]").addEventListener("click", () => { ed.value = q.starter || ""; entry.code = ed.value; onChange("code"); });
   if (react) run(true);
 }

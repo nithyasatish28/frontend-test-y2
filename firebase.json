@@ -5,9 +5,26 @@
   },
   "hosting": {
     "public": ".",
-    "ignore": ["firebase.json", "firestore.rules", "*.md", "**/.*", "tests/**"],
+    "ignore": [
+      "firebase.json",
+      "firestore.rules",
+      "*.md",
+      "**/.*",
+      "tests/**",
+      "package.json",
+      "package-lock.json",
+      "node_modules/**"
+    ],
     "headers": [
-      { "source": "**/*.@(js|css|html)", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+      {
+        "source": "**/*.@(js|css|html)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      }
     ]
   }
 }

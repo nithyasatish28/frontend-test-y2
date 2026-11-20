@@ -42,6 +42,13 @@ export function problems(q) {
   } else if (q.lang !== "terminal") {
     if (!(q.tests || []).length) out.push("has no tests, so it can never be marked correct");
     if ((q.tests || []).some(t => t.op !== "source" && !String(t.expr || "").trim())) out.push("has a test with nothing to check");
+    // Test names are shown to students before they run anything, so a name that quotes its own
+    // expected value hands the answer over with no devtools involved.
+    const telling = (q.tests || []).filter(t => {
+      const exp = String(t.expected ?? "").trim();
+      return exp.length > 2 && String(t.name || "").includes(exp);
+    });
+    if (telling.length) out.push(`${telling.length} test name${telling.length === 1 ? "" : "s"} give the answer away (students see the names)`);
   } else if (q.terminalError) out.push("has a folder tree that isn’t valid JSON");
   return out;
 }
@@ -142,6 +149,9 @@ export function mount(view, ctx, setId) {
         <label class="field"><span>Points each</span><input data-k="points" type="number" min="0.5" step="0.5" value="${set.points ?? 1}"></label>
         <label class="field"><span>Hint cost</span><input data-k="hintPenalty" type="number" min="0" step="0.25" value="${set.hintPenalty ?? 0.5}"></label>
       </div>
+      <label class="field"><span>&nbsp;</span><span class="switch"><input type="checkbox" data-part ${set.partMarks ? "checked" : ""}> Part marks for blanks and code</span></label>
+      <p class="note" style="margin:-6px 0 10px">On, 3 of 4 blanks right is worth three quarters of the question, and so is 3 of 4 checks passing.
+        Off, only a completely right answer scores. Nobody ever loses a mark they already had.</p>
       <h3>Parts and questions</h3>
       ${set.sections.map((s, i) => {
         const qs = lab.filter(q => q.section === s.id);
@@ -157,6 +167,7 @@ export function mount(view, ctx, setId) {
       set[k] = inp.type === "number" ? Number(inp.value) : inp.value;
       markDirty();
     }));
+    side.querySelector("[data-part]")?.addEventListener("change", e => { set.partMarks = e.target.checked; markDirty(); });
     side.querySelectorAll("[data-sec]").forEach(inp => inp.addEventListener("input", () => { set.sections.find(s => s.id === inp.dataset.sec).title = inp.value; markDirty(); }));
     side.querySelectorAll("[data-secup]").forEach(b => b.addEventListener("click", () => { const i = +b.dataset.secup; [set.sections[i - 1], set.sections[i]] = [set.sections[i], set.sections[i - 1]]; markDirty(); drawSide(); drawForm(); }));
     side.querySelectorAll("[data-secdel]").forEach(b => b.addEventListener("click", () => { set.sections.splice(+b.dataset.secdel, 1); markDirty(); drawSide(); }));
@@ -431,7 +442,7 @@ export function mount(view, ctx, setId) {
     const d = dialog(`<div class="dlg-body"><h2>Preview as a student</h2><p class="note" style="margin-top:0">Try it: nothing here is saved.</p><div class="preview-frame"><article class="qcard" data-card></article></div></div><div class="dlg-foot"><button class="btn" data-close type="button">Close</button></div>`, { wide: true });
     const entry = { s: null, h: false };
     const draw = () => renderQuestion(d.el.querySelector("[data-card]"), {
-      q: pq, entry, session: { points: set.points ?? 1, hintPenalty: set.hintPenalty ?? 0.5, salt: "preview" }, isLocked: () => false,
+      q: pq, entry, session: { points: set.points ?? 1, hintPenalty: set.hintPenalty ?? 0.5, partMarks: !!set.partMarks, salt: "preview" }, isLocked: () => false,
       meta: { sectionTitle: sec?.title }, onChange: () => {},
     });
     draw();

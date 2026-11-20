@@ -181,6 +181,7 @@ export async function create(role) {
         snap.docs.slice(i, i + 400).forEach(x => b.delete(x.ref));
         await b.commit();
       }
+      try { await F.deleteDoc(d("sessions", id, "secret", "keys")); } catch {}
       await F.deleteDoc(d("sessions", id));
     }),
     // A finished session with its students' attempts, written in one go (old results, see admin/import-old.js).
@@ -194,6 +195,9 @@ export async function create(role) {
       }
       return ref.id;
     }),
+    // The answers an exam session keeps back. Only the session's owner can read this path.
+    saveSecret: wrap((sid, data) => F.setDoc(d("sessions", sid, "secret", "keys"), data)),
+    getSecret: wrap(async sid => data(await F.getDoc(d("sessions", sid, "secret", "keys")))),
     watchSession: (id, cb) => watchDoc(d("sessions", id), cb),
     watchSessions: (cb, owner) => watchCol(owner
       ? F.query(c("sessions"), F.where("ownerUid", "==", owner), F.orderBy("createdAt", "desc"), F.limit(300))

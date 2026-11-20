@@ -4,6 +4,7 @@ import { stats, cellCode, answerText, qPoints } from "../lib/grade.js";
 import { phaseOf, phasePill, newSession } from "./sessions.js";
 import { regradeDialog } from "./regrade.js";
 import { markingDialog, unmarkedCount, subjectiveQuestions } from "./marking.js";
+import { answerKeyFor } from "../lib/grade.js";
 
 const IDLE_MIN = 5;
 
@@ -50,7 +51,7 @@ export function mount(view, ctx, sid, isLiveTab = false) {
       <div class="legend"><span>% right, out of the students who have tried it ·</span><span><i style="background:var(--bad-soft);border:1px solid #f3c3bd"></i>under 40%</span><span><i style="background:var(--hint-soft);border:1px solid #f0d6a6"></i>40–70%</span><span><i style="background:var(--good-soft);border:1px solid #b9e3c9"></i>over 70%</span></div></section>
     <section class="card">
       <div class="page-head" style="margin-bottom:8px"><h2 style="margin:0;margin-right:auto">Students</h2>
-        <button class="btn small" data-mark type="button" hidden>Mark written answers</button><button class="btn ghost small" data-regrade type="button">Re-grade &amp; verify</button><button class="btn ghost small" data-csv type="button">Download scores (CSV)</button><button class="btn ghost small" data-csv2 type="button">Download all answers (CSV)</button></div>
+        <button class="btn small" data-release type="button" hidden></button><button class="btn small" data-mark type="button" hidden>Mark written answers</button><button class="btn ghost small" data-regrade type="button">Re-grade &amp; verify</button><button class="btn ghost small" data-csv type="button">Download scores (CSV)</button><button class="btn ghost small" data-csv2 type="button">Download all answers (CSV)</button></div>
       <p class="sub" style="margin:0 0 12px">Click a student to see exactly what they answered.</p>
       <div class="tools">
         <input type="search" data-search placeholder="Search by name" aria-label="Search students">
@@ -72,6 +73,19 @@ export function mount(view, ctx, sid, isLiveTab = false) {
     if (!session) return;
     markingDialog(ctx, sid, session, rows, { ended: phaseOf(session, now()) === "ended" });
   });
+  // Exams only: let the students see how they did.
+  $("[data-release]").addEventListener("click", e => {
+    if (!session) return;
+    const on = !!session.resultsReleased;
+    confirmClick(e.currentTarget, async () => {
+      try {
+        let answers;
+        if (!on) { try { answers = answerKeyFor(await store.getSecret(sid)); } catch { answers = null; } }
+        await store.updateSession(sid, { resultsReleased: !on, ...(answers ? { answers } : {}) });
+        toast(on ? "Results hidden again" : "Released. Students see their marks for 6 hours after the end.");
+      } catch (ex) { toast(ex.message, "err"); }
+    }, on ? "Click again to hide them" : "Click again: students see their marks");
+  });
   $("[data-regrade]").addEventListener("click", () => {
     if (!session) return;
     if (!rows.length) { toast("No students have joined yet."); return; }
@@ -89,6 +103,13 @@ export function mount(view, ctx, sid, isLiveTab = false) {
   const rowStats = r => stats(session, r.q || {});
   // "Mark written answers" is only shown when the session has written answers at all.
   function drawMarkButton() {
+    const r = $("[data-release]");
+    if (r && session) {
+      const ended = phaseOf(session, now()) === "ended";
+      r.hidden = !session.examMode || !ended;
+      r.textContent = session.resultsReleased ? "Results released · hide them" : "Release results to students";
+      r.className = session.resultsReleased ? "btn ghost small" : "btn small";
+    }
     const b = $("[data-mark]");
     if (!b || !session) return;
     const has = subjectiveQuestions(session).length;

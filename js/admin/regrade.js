@@ -22,11 +22,13 @@ const LETTERS = "ABCDEFGH";
 const MARK = { c: "correct", w: "wrong" };
 const markName = s => (s == null ? "no mark" : MARK[s] || String(s));
 
-// status: "agrees" · "disagrees" · "unchecked".  fix: what to write to put it right, or null.
+// status: "agrees" · "disagrees" · "marks" · "unchecked".
+//   "marks" is an exam: nothing was marked during the test, so this is the first verdict rather
+//   than a disagreement with one. Both it and "disagrees" carry a fix to write.
 const result = (status, why, saved, computed, fix = null) => ({ status, why, saved, computed, fix });
 
 /* ─────────── One answer ─────────── */
-export async function auditEntry(session, q, e, { codeTests = false } = {}) {
+export async function auditEntry(session, q, e, { codeTests = false, exam = false } = {}) {
   const saved = e?.s ?? null;
 
   if (q.type === "mcq") {
@@ -35,7 +37,10 @@ export async function auditEntry(session, q, e, { codeTests = false } = {}) {
         : result("disagrees", "marked, but no choice was saved", saved, null, { s: null });
     }
     const computed = mcqRight(q, session.salt, e.pick) ? "c" : "w";
-    if (saved == null) return result("unchecked", "a choice, but no mark", saved, computed);
+    if (saved == null) {
+      return exam ? result("marks", `${LETTERS[e.pick] || "?"} is ${computed === "c" ? "right" : "wrong"}`, saved, computed, { s: computed })
+        : result("unchecked", "a choice, but no mark", saved, computed);
+    }
     return computed === saved ? result("agrees", "", saved, computed)
       : result("disagrees", `${LETTERS[e.pick] || "?"} is ${computed === "c" ? "right" : "wrong"}`, saved, computed, { s: computed });
   }
@@ -48,7 +53,10 @@ export async function auditEntry(session, q, e, { codeTests = false } = {}) {
     }
     const marks = blanksMarks(q, session.salt, vals);
     const computed = marks.every(Boolean) ? "c" : "w";
-    if (saved == null) return result("unchecked", "answers, but no mark", saved, computed);
+    if (saved == null) {
+      return exam ? result("marks", `${marks.filter(Boolean).length} of ${marks.length} blanks right`, saved, computed, { s: computed, marks })
+        : result("unchecked", "answers, but no mark", saved, computed);
+    }
     return computed === saved ? result("agrees", "", saved, computed)
       : result("disagrees", `${marks.filter(Boolean).length} of ${marks.length} blanks are right`, saved, computed, { s: computed, marks });
   }
@@ -59,7 +67,21 @@ export async function auditEntry(session, q, e, { codeTests = false } = {}) {
       ? result("unchecked", "marked by hand", saved, null)
       : result("unchecked", e?.text ? "written, not marked yet" : "not answered", saved, null);
   }
-  // Code. The only mark a code question ever gives itself is "correct".
+  // Code. In an exam the student never ran the checks, so there is no earlier verdict to agree
+  // or disagree with: the tests are run here, on whatever they wrote, and that is the mark.
+  if (exam) {
+    const src = e?.code;
+    if (!src || !src.trim()) return result("unchecked", "nothing written", saved, null);
+    if (!codeTests) return result("unchecked", "code tests weren’t re-run", saved, null);
+    try {
+      const res = await checkCode(q, src);
+      const passed = res.filter(r => r.pass).length;
+      const all = res.length > 0 && passed === res.length;
+      return result(saved == null ? "marks" : all === (saved === "c") ? "agrees" : "disagrees",
+        `${passed} of ${res.length} checks pass`, saved, all ? "c" : "w",
+        { s: all ? "c" : "w", checked: src, checks: `${passed}/${res.length}` });
+    } catch (ex) { return result("unchecked", "couldn’t run: " + ex.message, saved, null); }
+  }
   if (saved !== "c") return result("unchecked", saved == null ? "no mark to check" : "", saved, null);
   if (!e.checked) return result("disagrees", "marked correct, but no checked code was saved", saved, null, { s: null });
   const [passed, total] = String(e.checks || "").split("/").map(Number);
@@ -79,7 +101,10 @@ export async function auditEntry(session, q, e, { codeTests = false } = {}) {
 
 /* ─────────── Every answer in the session ─────────── */
 // Reads only. Each row carries the patch that would put that student right, nothing is written.
-export async function auditSession(session, attempts, { codeTests = false, onProgress, stop } = {}) {
+// An exam's session carries no keys, so marking it means marking against the copy kept back.
+// Pass that in as `keys` and every question is checked against the real thing.
+export async function auditSession(session, attempts, { codeTests = false, onProgress, stop, keys } = {}) {
+  if (keys) session = { ...session, salt: keys.salt, questions: keys.questions };
   const rows = [];
   let n = 0;
   for (const a of attempts) {
@@ -87,15 +112,16 @@ export async function auditSession(session, attempts, { codeTests = false, onPro
     const items = [];
     for (const q of session.questions) {
       if (stop?.()) return { rows, stopped: true };
-      const r = await auditEntry(session, q, (a.q || {})[q.id], { codeTests });
+      const r = await auditEntry(session, q, (a.q || {})[q.id], { codeTests, exam: !!keys });
       items.push({ q, ...r });
     }
-    const fixes = items.filter(i => i.status === "disagrees" && i.fix);
+    const fixes = items.filter(i => (i.status === "disagrees" || i.status === "marks") && i.fix);
     const qFixed = { ...(a.q || {}) };
     for (const f of fixes) qFixed[f.q.id] = { ...(qFixed[f.q.id] || {}), ...f.fix };
     rows.push({
       attempt: a, items, fixes,
       disagree: items.filter(i => i.status === "disagrees"),
+      toMark: items.filter(i => i.status === "marks"),
       unchecked: items.filter(i => i.status === "unchecked" && i.why),
       saved: stats(session, a.q || {}),
       true_: stats(session, qFixed),
@@ -178,11 +204,11 @@ export function regradeDialog(ctx, sid, session, attempts, { canApply = false } 
           <td class="note">${esc(i.why)}</td>
           <td class="n">${k ? "" : `${fmtPts(r.saved.score)} → <b>${fmtPts(r.true_.score)}</b>`}</td>
         </tr>`).join("")).join("")}</tbody></table></div>`
-        : `<p>All ${answers} answers were marked again and every saved mark matches${codeTests ? ", code tests included" : ""}.</p>`}
+        : `<p>${exam ? "No answers needed marking." : `All ${answers} answers were marked again and every saved mark matches${codeTests ? ", code tests included" : ""}.`}</p>`}
       ${unchecked ? `<p class="note" style="margin-top:12px">${unchecked} answer${unchecked === 1 ? "" : "s"} couldn’t be checked${codeTests ? "" : " — code tests weren’t re-run"}. They’re in the CSV report.</p>` : ""}`;
     foot.innerHTML =
       `<button class="btn ghost" data-csv type="button">Download report (CSV)</button>` +
-      (fixable.length && canApply ? `<button class="btn danger" data-apply type="button">Apply ${fixable.length} correction${fixable.length === 1 ? "" : "s"}</button>` : "") +
+      (fixable.length && canApply ? `<button class="btn ${exam ? "" : "danger"}" data-apply type="button">${exam ? `Write ${fixable.length} student${fixable.length === 1 ? "'s" : "s'"} marks` : `Apply ${fixable.length} correction${fixable.length === 1 ? "" : "s"}`}</button>` : "") +
       (fixable.length && !canApply ? `<span class="note" style="margin-right:auto">End the test to write corrections.</span>` : "") +
       `<button class="btn" data-close="" type="button">Close</button>`;
     foot.querySelector("[data-csv]").addEventListener("click", () => csvReport(session, rows));

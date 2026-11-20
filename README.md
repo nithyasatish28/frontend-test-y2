@@ -45,15 +45,18 @@ Questions → *Add a starter set* is already done for you in the demo. Make a se
 ## 3. Running a class
 
 1. **Questions** → *Add a starter set* (the original JS + React test, or the Python sample), upload a CSV, or make your own.
-2. **Sessions** → *New session*: pick the set, the title, and the time limit.
+2. **Sessions** → *New session*: pick the set, the title, and the time limit. Two choices here decide how the test behaves:
+   - **Exam** — nothing that could give an answer away is sent to the student's browser: no answer keys, no expected values for the code checks. Students answer and submit; the app marks nothing. You mark afterwards and release the results. Leave it off for practice, where the test marks itself as students go and they see straight away how they did.
+   - **Mark written answers while the test is running** — see step 8.
 3. Copy the session’s **Student link** from its page and share it. Every session has its own link.
 4. Students open the link and type their full name. They land in the waiting room. (“Not you? Start again” lets them fix a typo before the test starts.)
 5. **Live** shows who has joined. Press **Start the test** (twice, to confirm). Everyone's test opens at once and the timer is the same for all.
 6. Watch the grid fill in. Click a student to see exactly what they answered. **+5 minutes** and **End the test now** work for everyone instantly. When time runs out, every open test submits itself.
-7. **Download scores** or **Download all answers** (CSV, opens in Excel/Sheets).
-8. **Written answers** are marked by you, not the app. When you make the session you choose when: leave *Mark written answers while the test is running* off and you mark each student once they submit (or once the test ends); switch it on and every written question gets its own **Hand in this answer** button, so the moment a student presses it the answer locks and appears in **Mark written answers** for you to score. That suits a long paper you want to mark as it comes in. You can change your mind from inside the marking window. (A mark also remembers the text it was given for, so if an answer ever does change afterwards it is flagged *answered again since you marked it*.)
-9. **Re-grade & verify** (next to the download buttons) marks every answer again from what the students actually typed and lists anything that disagrees with the mark their browser saved. Worth a look after every test: it is what catches a faked score. Once the test has ended you can apply the corrections in one press. Tick *Re-run code tests too* to re-run each student's saved code as well — thorough, but slow.
-10. Every session stays in **Sessions** — open any of them later to see the results again. For the next class, make a new session and share its new link.
+7. **For an exam**: when it has ended, press **Mark this test**. Every multiple-choice, blanks and code answer is marked against the copy kept back from the students, and the results written. Then **Release results to students** — they can open their link and see what they scored, which option was right, and the accepted answers for any blanks they got wrong. The link stays open for **6 hours** after the test ends.
+8. **Download scores** or **Download all answers** (CSV, opens in Excel/Sheets).
+9. **Written answers** are marked by you, not the app. When you make the session you choose when: leave *Mark written answers while the test is running* off and you mark each student once they submit (or once the test ends); switch it on and every written question gets its own **Hand in this answer** button, so the moment a student presses it the answer locks and appears in **Mark written answers** for you to score. That suits a long paper you want to mark as it comes in. You can change your mind from inside the marking window. (A mark also remembers the text it was given for, so if an answer ever does change afterwards it is flagged *answered again since you marked it*.)
+10. **Re-grade & verify** (next to the download buttons) marks every answer again from what the students actually typed and lists anything that disagrees with the mark their browser saved. Worth a look after every test: it is what catches a faked score. Once the test has ended you can apply the corrections in one press. Tick *Re-run code tests too* to re-run each student's saved code as well — thorough, but slow.
+11. Every session stays in **Sessions** — open any of them later to see the results again. For the next class, make a new session and share its new link.
 
 **Tips**
 - **The link closes when the test is over.** Students who are still on the page see their score for 10 minutes after the end; after that the link shows “This test link is closed” to everyone, so it can’t be passed on to the next batch.
@@ -134,13 +137,17 @@ Python runs in the student's browser (Pyodide). For Python questions the hidden 
 ## 5. Good to know
 
 - **Free plan limits.** Firebase's free (Spark) plan allows 20,000 writes and 50,000 reads a day. As a rough guide, a 45-minute test with 60 students uses several thousand writes (answers plus a once-a-minute “still here” signal), so a few classes a day fit. Usage is shown in the Firebase console; the pay-as-you-go plan costs very little at this size.
+- **Part marks.** A question set can give part marks (it's a switch on the set, on for new ones): 3 of 4 blanks right is worth three quarters of the question, and so is 3 of 4 checks passing. A student who once passed every check keeps the whole mark even if they edit afterwards and break something — nobody loses a mark they had already earned.
+
 - **How cheat-proof it is.** Answers are checked in the student's browser, as before: multiple-choice and blank answers are only sent as salted hashes, and the database rules stop students from reading other students' answers, opening a session’s link after it closes, changing their answers after they submit, or saving after the time limit (plus 3 minutes' grace).
 
   Two things worth being clear about.
 
   **A faked mark can be found afterwards.** A student who knows browser developer tools can write a “correct” mark for their own answer. But what they typed is saved too, and the session keeps the answer keys — so **Re-grade & verify** in the session marks everything again and shows you where the saved mark disagrees. Use it after every test. (Hints can't be checked this way, and a code answer that passed and was then edited is honestly ambiguous — both are reported as “couldn't be checked” rather than guessed at.)
 
-  **The hashes are not a lock.** They keep answers out of casual view, but the session's salt sits on the session itself — the browser needs it to mark anything at all — so a multiple-choice answer, one of at most eight options, can be worked out by trying each one. Re-grading cannot see that happen: the student really did pick the right option. Free-text blanks are much harder, and code tests ship as plain text by design. For a high-stakes exam, mark on a server (Firebase Cloud Functions, which needs the pay-as-you-go plan).
+  **The hashes are not a lock — so use Exam for anything that matters.** In an ordinary session the browser has to mark the answers, so it has to hold something to mark them against. The salt sits on the session, and a multiple-choice answer is one of at most eight options, so it can be worked out by trying each one. Code questions ship their tests, because the code runs in the browser. Re-grading cannot see any of this: the student really did pick the right option.
+
+  **Exam** mode removes all of it. No keys, no expected values, no salt — the browser is given nothing to mark with, because it does no marking. That is the setting to use for a test that counts. (What a question's own words give away is still up to you: if the starter code says `// should print 110`, students read that. The question editor warns you when a *test name* contains its expected value, since students see those too.)
 - **Old results**: Sessions → **Import old results** brings in the latest class straight from the old Google Sheet (old web app URL + admin key), or older classes from the CSV files the old admin page downloaded. Each one appears as a past session. Do this after Firebase is set up, so they're saved to your account.
 
 ## How it's built
@@ -165,3 +172,20 @@ vendor/                    React, React DOM and Babel, kept here instead of load
 firestore.rules            database security rules (paste into Firebase)
 firebase.json              settings for `firebase deploy`
 ```
+
+## Tests
+
+```
+npm install     # once, for the tests that drive the pages (jsdom)
+npm test
+```
+
+Twenty files under `tests/`, run by `tests/run.mjs`. No framework: `is(name, got, want)` from
+`tests/helpers.mjs`, which also provides the browser stand-ins. The ones that need a DOM skip
+themselves with a note if `npm install` hasn't been run, so `npm test` works either way.
+
+They cover the parts that fail silently and expensively: scoring and part marks, answer keys and
+what an exam does *not* send to a student, marking and re-grading, registration and the super
+admin, who can see whose work, and the student's page driven for real — typing an answer, handing
+it in, a mark arriving. `firebase.json` keeps `tests/`, `package.json` and `node_modules/` out of
+anything deployed.

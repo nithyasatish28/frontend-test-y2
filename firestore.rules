@@ -11,12 +11,12 @@ service cloud.firestore {
     function isAdmin() {
       return signedIn() && exists(/databases/$(db)/documents/admins/$(request.auth.uid));
     }
-    // A session's link works while it's waiting or running, and for 10 minutes after it ends
-    // (so students can see their score). After that it's closed.
+    // A session's link works while it's waiting or running, and for 6 hours after it ends, so
+    // students can come back for their results once the instructor has marked them.
     function linkOpen(s) {
       return s.status == 'waiting'
         || (s.status == 'running' && request.time < s.startAt + duration.value(s.minutes + 10, 'm'))
-        || (s.status == 'ended' && request.time < s.endAt + duration.value(10, 'm'));
+        || (s.status == 'ended' && request.time < s.endAt + duration.value(6, 'h'));
     }
     // Students can save while the test is open, plus 3 minutes of grace.
     function canSave(s) {
@@ -137,6 +137,11 @@ service cloud.firestore {
       function session() { return get(/databases/$(db)/documents/sessions/$(sid)).data; }
       // An instructor reads the answers to their own sessions. Costs one extra document read.
       function runsThis() { return isAdmin() && (isSuper() || ownerOf(session()) == request.auth.uid); }
+
+      // The answers held back from an exam. Nobody but the instructor running it.
+      match /secret/{doc} {
+        allow read, write: if runsThis();
+      }
 
       match /attempts/{uid} {
         allow read: if runsThis() || (signedIn() && request.auth.uid == uid);

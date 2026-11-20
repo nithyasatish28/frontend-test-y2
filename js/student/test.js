@@ -286,11 +286,14 @@ export class Test {
     }
     const lg = document.createElement("div"); lg.className = "legend";
     const written = s.questions.some(q => q.type === "subjective");
-    lg.innerHTML = `<span><b style="color:var(--good)">Green</b> ${written ? "correct or handed in" : "correct"} · <b style="color:var(--bad)">red</b> wrong</span>`
-      + (written ? `<span><b style="color:var(--good)">✓</b> marked by your instructor</span>` : "")
+    const unmarked = s.examMode && !s.resultsReleased;
+    lg.innerHTML = (unmarked
+      ? `<span><b style="color:var(--good)">Green</b> answered · nothing is marked until your instructor releases the results</span>`
+      : `<span><b style="color:var(--good)">Green</b> ${written ? "correct or handed in" : "correct"} · <b style="color:var(--bad)">red</b> wrong</span>`
+        + (written ? `<span><b style="color:var(--good)">✓</b> marked by your instructor</span>` : ""))
       + `<span><b style="color:var(--hint)">●</b> hint opened</span>`;
     box.append(lg);
-    el("scoreTop").textContent = fmtPts(stats(s, this.A.q).score);
+    el("scoreTop").textContent = s.examMode && !s.resultsReleased ? "–" : fmtPts(stats(s, this.A.q).score);
   }
   openQ(id) {
     this.A.cur = id; this.changed(false);
@@ -318,12 +321,16 @@ export class Test {
 
   renderScores() {
     const s = this.session, st = stats(s, this.A.q), pen = s.hintPenalty ?? 0.5;
-    el("bigScore").innerHTML = `${fmtPts(st.score)}<small> / ${fmtPts(st.max)}</small>`;
-    el("stCorrect").textContent = st.correct; el("stCorrectLabel").textContent = "correct";
+    // An exam shows nothing until the instructor has marked it and released the results.
+    const hidden = s.examMode && !s.resultsReleased;
+    el("bigScore").innerHTML = hidden ? `<span class="note" style="font-size:1rem">Not marked yet</span>` : `${fmtPts(st.score)}<small> / ${fmtPts(st.max)}</small>`;
+    el("stCorrect").textContent = hidden ? st.done : st.correct;
+    el("stCorrectLabel").textContent = hidden ? "answered" : "correct";
     el("stHints").textContent = st.hints; el("stHintsLabel").textContent = `hints (−${fmtPts(pen)} each)`;
     el("stLeft").textContent = st.total - st.done;
     const note = el("finishNote");
-    if (st.pending && note) note.textContent = `${st.pending} written answer${st.pending === 1 ? "" : "s"} still to be marked by your instructor, so this score isn’t final.`;
+    if (hidden && note) note.textContent = "Your instructor marks this test afterwards. Come back to this link to see how you did — it stays open for 6 hours after the test ends.";
+    else if (st.pending && note) note.textContent = `${st.pending} written answer${st.pending === 1 ? "" : "s"} still to be marked by your instructor, so this score isn’t final.`;
     let rows = `<thead><tr><th>Question</th><th>Result</th><th class="n">Answer</th><th class="n">Hint</th><th class="n">Points</th></tr></thead><tbody>`;
     for (const sec of s.sections) {
       const qs = s.questions.filter(q => q.sectionKey === sec.key);
@@ -333,6 +340,11 @@ export class Test {
       for (const q of qs) {
         const e = this.A.q[q.id] || {};
         const marked = typeof e.awarded === "number";
+        if (hidden) {
+          const answered = isDone(q, e, s);
+          rows += `<tr><td><b>${q.label}</b> ${esc(q.title)}</td><td>${answered ? "Answered" : "Not done"}</td><td class="n">–</td><td class="n neg">${e.h ? "−" + fmtPts(pen) : ""}</td><td class="n">–</td></tr>`;
+          continue;
+        }
         const res = q.type === "subjective"
           ? (marked ? `✓ Marked ${fmtPts(e.awarded)} / ${fmtPts(qPoints(q, s))}`
              : String(e.text || "").trim() ? "Written — your instructor marks this" : "Not done")
@@ -357,11 +369,11 @@ export class Test {
     el("tStart").textContent = s.startAt ? clock(s.startAt) : "–";
     el("tEnd").textContent = s.startAt ? clock(this.endsAt()) : "–";
     el("tUsed").textContent = mmss(used);
-    const leftQ = s.questions.filter(q => !isDone(q, this.A.q[q.id])).length;
+    const leftQ = s.questions.filter(q => !isDone(q, this.A.q[q.id], s)).length;
     el("tPace").textContent = leftQ ? mmss(left / leftQ) : "All done";
     let rows = `<thead><tr><th>Part</th><th class="n">Done</th><th>Progress</th></tr></thead><tbody>`;
     for (const sec of s.sections) {
-      const qs = s.questions.filter(q => q.sectionKey === sec.key), done = qs.filter(q => isDone(q, this.A.q[q.id])).length;
+      const qs = s.questions.filter(q => q.sectionKey === sec.key), done = qs.filter(q => isDone(q, this.A.q[q.id], s)).length;
       if (!qs.length) continue;
       rows += `<tr><td>Part ${sec.key} · ${esc(sec.title)}</td><td class="n">${done} / ${qs.length}</td><td style="width:45%"><div class="bar"><i style="width:${(done / qs.length) * 100}%"></i></div></td></tr>`;
     }

@@ -6,7 +6,7 @@ import { downloadTemplate, uploadCSV } from "./csv-questions.js";
 
 const TYPE_NAMES = { mcq: "multiple choice", blanks: "fill in the blanks", code: "code" };
 export const blankSet = () => ({
-  title: "New question set", description: "", minutes: 45, points: 1, hintPenalty: 0.5,
+  title: "New question set", description: "", minutes: 45, points: 1, hintPenalty: 0.5, partMarks: true,
   // A neutral name: a part can hold any mix of question types, and naming it after one of
   // them reads like a contradiction the moment you add another kind.
   sections: [{ id: "s" + randomId(6), title: "Part A" }], questions: [],

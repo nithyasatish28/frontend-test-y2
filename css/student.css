@@ -54,3 +54,7 @@ textarea.written { font: inherit; line-height: 1.55; resize: vertical; min-heigh
 .qb.sent { background: var(--good-soft); border-color: var(--good); color: var(--good); }
 .qb.marked::before { content: "\2713"; position: absolute; bottom: 0; right: 4px; font-size: .62rem; line-height: 1.2; font-weight: 700; color: var(--good); }
 .qb.wrong.marked::before { color: var(--bad); }
+
+/* The right option, shown after an exam's results are released. */
+.opt.was-right { border-color: var(--good); background: var(--good-soft); }
+.opt.was-right .l { background: var(--good); color: #fff; }

@@ -379,7 +379,7 @@ export const STARTER_SETS = [
     "preview": "",
     "tests": [
      {
-      "name": "cheapTitles(products, 50) → [\"Notebook\", \"Pen\"]",
+      "name": "Keeps only the titles under the price",
       "expr": "cheapTitles(products, 50)",
       "op": "equals",
       "expected": "[\"Notebook\", \"Pen\"]",
@@ -571,7 +571,7 @@ export const STARTER_SETS = [
     "preview": "",
     "tests": [
      {
-      "name": "billTotal(order) is the number 110",
+      "name": "Adds the prices as numbers, not text",
       "expr": "billTotal([{ dish: \"a\", price: \"60\" }, { dish: \"b\", price: \"20\" }, { dish: \"c\", price: \"30\" }])",
       "op": "equals",
       "expected": "110",
@@ -643,14 +643,14 @@ export const STARTER_SETS = [
     "preview": "",
     "tests": [
      {
-      "name": "stock 0 → \"Sold out\"",
+      "name": "Says sold out when there is none left",
       "expr": "stockLabel({ dish: \"Vada\", stock: 0 })",
       "op": "equals",
       "expected": "\"Sold out\"",
       "msg": ""
      },
      {
-      "name": "stock 12 → \"12 left\"",
+      "name": "Says how many are left otherwise",
       "expr": "stockLabel({ dish: \"Dosa\", stock: 12 })",
       "op": "equals",
       "expected": "\"12 left\"",
@@ -773,7 +773,7 @@ export const STARTER_SETS = [
     "preview": "",
     "tests": [
      {
-      "name": "summary(order) → \"Kavya ordered 3 items. Total: ₹110\"",
+      "name": "Names the customer, counts the items, totals the prices",
       "expr": "summary({ customer: \"Kavya\", items: [{ dish: \"Masala dosa\", price: 60 }, { dish: \"Filter coffee\", price: 20 }, { dish: \"Vada\", price: 30 }] })",
       "op": "equals",
       "expected": "\"Kavya ordered 3 items. Total: ₹110\"",
@@ -967,7 +967,7 @@ export const STARTER_SETS = [
     "preview": "",
     "tests": [
      {
-      "name": "even_numbers([1, 2, 3, 4]) → [2, 4]",
+      "name": "Keeps only the even numbers",
       "expr": "even_numbers([1, 2, 3, 4])",
       "op": "equals",
       "expected": "[2, 4]",
@@ -1017,14 +1017,14 @@ export const STARTER_SETS = [
     "preview": "",
     "tests": [
      {
-      "name": "3 and 4 → Sum: 7",
+      "name": "Adds two whole numbers",
       "expr": "OUTPUT",
       "op": "includes",
       "expected": "Sum: 7",
       "msg": "With 3 and 4 it printed: {got}"
      },
      {
-      "name": "10 and -2 → Sum: 8",
+      "name": "Handles a negative number",
       "expr": "run(\"10\\n-2\")",
       "op": "includes",
       "expected": "Sum: 8",
@@ -1090,7 +1090,7 @@ export const STARTER_SETS = [
     "preview": "",
     "tests": [
      {
-      "name": "It prints Next year you will be 18",
+      "name": "Prints their age next year",
       "expr": "OUTPUT",
       "op": "includes",
       "expected": "Next year you will be 18",
