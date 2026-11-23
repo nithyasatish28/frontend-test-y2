@@ -48,7 +48,8 @@ function form(ctx, mode) {
       <svg viewBox="0 0 18 18" width="17" height="17" aria-hidden="true"><path fill="#4285F4" d="M17.6 9.2c0-.6-.1-1.2-.2-1.8H9v3.4h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.7-3.9 2.7-6.5z"/><path fill="#34A853" d="M9 18c2.4 0 4.5-.8 6-2.2l-2.9-2.3c-.8.6-1.9.9-3.1.9-2.4 0-4.4-1.6-5.1-3.8H.9v2.3A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.9 10.6a5.4 5.4 0 0 1 0-3.4V4.9H.9a9 9 0 0 0 0 8.1l3-2.4z"/><path fill="#EA4335" d="M9 3.6c1.3 0 2.5.5 3.4 1.3l2.6-2.6A9 9 0 0 0 .9 4.9l3 2.3C4.6 5.1 6.6 3.6 9 3.6z"/></svg>
       Continue with Google
     </button>
-    <p class="note" style="margin:8px 0 0;text-align:center">Use your <b>${esc(INSTRUCTOR_EMAIL_DOMAIN)}</b> account</p>
+    <p class="err" data-gerr style="margin:8px 0 0;text-align:center"></p>
+    <p class="note" data-gnote style="margin:8px 0 0;text-align:center">Use your <b>${esc(INSTRUCTOR_EMAIL_DOMAIN)}</b> account</p>
     <div class="or"><span>or with a password</span></div>
     <form novalidate>
       ${newAccount ? field("who", "Your name", "text", 'autocomplete="name" maxlength="60"') : ""}
@@ -66,14 +67,17 @@ function form(ctx, mode) {
   const f = s.querySelector("form"), err = s.querySelector("[data-err]"), go = f.querySelector('[type="submit"]');
   (newAccount ? f.who : f.email).focus();
   const say = (msg, good) => { err.style.color = good ? "var(--good)" : ""; err.innerHTML = msg; };
+  // Google has its own line under its own button: an error there is not the password form's fault.
+  const gerr = s.querySelector("[data-gerr]"), gnote = s.querySelector("[data-gnote]");
+  const sayGoogle = msg => { gerr.innerHTML = msg; gnote.hidden = !!msg; };
 
   s.querySelector("[data-google]").addEventListener("click", async e => {
     const b = e.currentTarget;
-    b.disabled = true; say("");
+    b.disabled = true; say(""); sayGoogle("");
     // Whatever Google hands back, the access gate decides what it is worth: a personal address
     // gets told so, a work address joins the queue to be let in.
     try { await store.adminSignInGoogle(); }
-    catch (ex) { say(esc(ex.message)); b.disabled = false; }
+    catch (ex) { sayGoogle(esc(ex.message)); b.disabled = false; }
   });
   s.querySelector("[data-signup]")?.addEventListener("click", () => form(ctx, "signup"));
   s.querySelector("[data-login]")?.addEventListener("click", () => form(ctx, "login"));
@@ -84,7 +88,7 @@ function form(ctx, mode) {
   });
 
   f.addEventListener("submit", async e => {
-    e.preventDefault(); say("");
+    e.preventDefault(); say(""); sayGoogle("");
     const email = f.email.value.trim(), pw = f.pw.value;
     if (newAccount) {
       if (!f.who.value.trim()) { say("Type your name."); f.who.focus(); return; }
