@@ -58,3 +58,11 @@ off();
 const src = (await import("node:fs")).readFileSync(new URL("../js/admin/sets.js", import.meta.url), "utf8");
 is("written answers have a name", /subjective:\s*"written"/.test(src), true);
 is("and an unknown type falls back to its own name", src.includes('(TYPE_NAMES[q.type] || q.type)'), true);
+
+// ── the super admin can build a session from a colleague's set, but only on purpose ──
+const sess = (await import("node:fs")).readFileSync(new URL("../js/admin/sessions.js", import.meta.url), "utf8");
+is("the picker starts with your own sets", sess.includes("listen(ctx.user.uid);"), true);
+is("the super admin is offered the switch", /role === "super".*allsets/s.test(sess), true);
+is("switching it on asks for everyone's", sess.includes('listen(e.target.checked ? null : ctx.user.uid)'), true);
+is("a colleague's set is labelled with their name in the list", sess.includes("another instructor"), true);
+is("the session is still owned by whoever makes it", sess.includes("ownerUid: ctx.user.uid"), true);

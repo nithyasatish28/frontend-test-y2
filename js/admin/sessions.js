@@ -47,14 +47,18 @@ export function mount(view, ctx, owner) {
 // The dialog: pick a question set, a title and a time limit.
 export async function newSession(ctx) {
   const { store } = ctx;
-  let sets = [];
-  const off = store.watchSets(l => { sets = l; fill(); }, ctx.user.uid);
+  let sets = [], off = () => {};
+  // Whose sets the picker offers. Your own to begin with; the super admin can widen it.
+  const listen = owner => { off(); off = store.watchSets(l => { sets = l; fill(); }, owner); };
+  listen(ctx.user.uid);
   const today = new Date().toLocaleDateString([], { day: "numeric", month: "short" });
   const d = dialog(`
     <form class="dlg-body" novalidate>
       <h2>New session</h2>
       <p class="note" style="margin-top:0">Students open its link, type their name, wait in the waiting room, and start together when you press Start.</p>
       <label class="field"><span>Question set</span><select name="set" required></select></label>
+      ${ctx.role === "super" ? `<label class="field"><span>&nbsp;</span><span class="switch"><input type="checkbox" name="allsets"> Also offer other instructors' sets</span></label>
+      <p class="note" style="margin:-6px 0 0">The session is yours either way: it copies the questions when it is created, so running it changes nothing of theirs, and their set can be edited afterwards without touching your results.</p>` : ""}
       <label class="field"><span>Title students see</span><input name="stitle" required maxlength="80"></label>
       <div class="form-grid cols-2">
         <label class="field"><span>Time limit (minutes)</span><input name="minutes" type="number" min="1" max="300" required></label>
@@ -75,7 +79,10 @@ export async function newSession(ctx) {
   f.stitle.addEventListener("input", () => (touchedTitle = true));
   function fill() {
     const cur = f.set.value;
-    f.set.innerHTML = sets.length ? sets.map(s => `<option value="${esc(s.id)}">${esc(s.title || "Untitled")} (${(s.questions || []).length} questions)</option>`).join("") : `<option value="">No question sets yet: make one in Questions</option>`;
+    f.set.innerHTML = sets.length
+      ? sets.map(s => `<option value="${esc(s.id)}">${esc(s.title || "Untitled")} (${(s.questions || []).length} questions)${
+          s.ownerUid && s.ownerUid !== ctx.user.uid ? ` — ${esc(s.ownerName || "another instructor")}` : ""}</option>`).join("")
+      : `<option value="">No question sets yet: make one in Questions</option>`;
     if (cur && sets.some(s => s.id === cur)) f.set.value = cur;
     showLive();
     pick();
@@ -95,6 +102,7 @@ export async function newSession(ctx) {
     if (!has) f.live.checked = false;
   }
   f.set.addEventListener("change", () => { pick(); showLive(); });
+  f.allsets?.addEventListener("change", e => listen(e.target.checked ? null : ctx.user.uid));
   f.minutes.addEventListener("input", () => (f.minutes.dataset.touched = "1"));
   d.el.querySelector("[data-create]").addEventListener("click", async e => {
     const btn = e.currentTarget;
