@@ -50,3 +50,8 @@ const src = (await import("node:fs")).readFileSync(new URL("../js/admin/sets.js"
 is("no 'Add a starter set' button", src.includes("data-starter"), false);
 is("no 'Import a file' button", src.includes("data-import"), false);
 is("CSV upload is still there", src.includes("data-csv"), true);
+
+// JSON is gone from both ends: nothing writes it, nothing reads it
+const editor = (await import("node:fs")).readFileSync(new URL("../js/admin/set-editor.js", import.meta.url), "utf8");
+is("no JSON export in the editor", /data-dl\b|application\/json/.test(editor), false);
+is("CSV export is still there", editor.includes("data-dlcsv"), true);

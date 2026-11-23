@@ -1,6 +1,6 @@
 // The question editor: set details, parts, and every question type
 // (multiple choice, fill in the blanks, and code in JavaScript, React, Python or terminal commands).
-import { esc, uid as randomId, toast, download, confirmClick, debounce } from "../lib/util.js";
+import { esc, uid as randomId, toast, confirmClick, debounce } from "../lib/util.js";
 import { labelQuestions, publishQuestion, blankNumbers } from "../lib/grade.js";
 import { renderQuestion } from "../ui/question.js";
 import { createEditor } from "../ui/editor.js";
@@ -86,7 +86,6 @@ export function mount(view, ctx, setId) {
       <div class="savebar">
         <span class="state" data-state></span>
         <button class="btn ghost small" data-dlcsv type="button">Download as CSV</button>
-        <button class="btn ghost small" data-dl type="button">Download as a file</button>
         <button class="btn ghost small" data-dup type="button">Duplicate set</button>
         <button class="btn ghost small" data-delset type="button">Delete set</button>
         <button class="btn" data-save type="button">Save</button>
@@ -98,7 +97,6 @@ export function mount(view, ctx, setId) {
       </div>`;
     $("[data-save]").addEventListener("click", save);
     $("[data-dlcsv]").addEventListener("click", () => downloadSetCSV(clean(set)));
-    $("[data-dl]").addEventListener("click", () => download(`${(set.title || "questions").replace(/[^\p{L}\p{N}]+/gu, "-").toLowerCase()}.json`, JSON.stringify({ format: "class-test-question-set", version: 1, questionSet: set }, null, 2), "application/json"));
     $("[data-dup]").addEventListener("click", async () => {
       try { const id = await store.saveSet(null, { ...clone(set), title: (set.title || "Untitled") + " (copy)", ownerUid: ctx.user.uid, ownerName: ctx.user.email || "" }); toast("Copied. You’re now editing the copy."); dirty = false; ctx.go("#/questions/" + id); }
       catch (e) { toast(e.message, "err"); }

@@ -138,7 +138,7 @@ Python runs in the student's browser (Pyodide). For Python questions the hidden 
 - `tests` (code questions): one test per line (Alt + Enter in Excel, Ctrl + Enter in Sheets), as `name | check | compare | expected | message`, where compare is `equals`, `contains`, `matches`, `is true` or `code matches`.
 - Save from Excel as **CSV UTF-8**, so symbols like ₹ survive.
 
-*Download as a file* saves a set as JSON, as a quick backup. To move a set between people or projects, use **Download as CSV** and **Upload CSV** — the CSV carries everything a set holds and can be read and edited in a spreadsheet.
+To keep a copy of a set, or move one between people or projects, use **Download as CSV** and **Upload CSV**. The CSV carries everything a set holds and opens in a spreadsheet.
 
 ## 5. Good to know
 
