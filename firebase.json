@@ -25,6 +25,13 @@
           }
         ]
       }
+    ],
+    "redirects": [
+      {
+        "source": "/",
+        "destination": "/admin.html",
+        "type": 302
+      }
     ]
   }
 }
