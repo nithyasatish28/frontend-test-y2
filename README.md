@@ -21,7 +21,7 @@ npx serve .
 - `http://localhost:3000/admin.html` — log in with **demo@example.com / demo1234**
 - make a session, then open its **student link** in another tab and type a name
 
-Questions → *Add a starter set* is already done for you in the demo. Make a session (Sessions → New session), join as the student, press Start. "Reset demo data" in the yellow bar starts over.
+The starter sets are already there. Make a session (Sessions → New session), join as the student, press Start. "Reset demo data" in the yellow bar starts over.
 
 ## 2. Set up Firebase (about 15 minutes, once)
 
@@ -46,7 +46,7 @@ Questions → *Add a starter set* is already done for you in the demo. Make a se
 
 ## 3. Running a class
 
-1. **Questions** → *Add a starter set* (the original JS + React test, or the Python sample), upload a CSV, or make your own.
+1. **Questions** — the two starter sets (the original JS + React test and a Python sample) are already there the first time you look, as your own copies to change or delete. You can also upload a CSV or make a set from scratch.
 2. **Sessions** → *New session*: pick the set, the title, and the time limit. Two choices here decide how the test behaves:
    - **Exam** — nothing that could give an answer away is sent to the student's browser: no answer keys, no expected values for the code checks. Students answer and submit; the app marks nothing. You mark afterwards and release the results. Leave it off for practice, where the test marks itself as students go and they see straight away how they did.
    - **Mark written answers while the test is running** — see step 8.
@@ -138,7 +138,7 @@ Python runs in the student's browser (Pyodide). For Python questions the hidden 
 - `tests` (code questions): one test per line (Alt + Enter in Excel, Ctrl + Enter in Sheets), as `name | check | compare | expected | message`, where compare is `equals`, `contains`, `matches`, `is true` or `code matches`.
 - Save from Excel as **CSV UTF-8**, so symbols like ₹ survive.
 
-*Download as a file* saves a set as JSON; *Import a file* on the Question sets page loads one — handy for sharing sets with colleagues or keeping a backup.
+*Download as a file* saves a set as JSON, as a quick backup. To move a set between people or projects, use **Download as CSV** and **Upload CSV** — the CSV carries everything a set holds and can be read and edited in a spreadsheet.
 
 ## 5. Good to know
 
