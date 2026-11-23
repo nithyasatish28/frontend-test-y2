@@ -89,7 +89,7 @@ function route() {
   else if (page === "instructors") {
     // Typing the address by hand doesn't get an ordinary instructor in either.
     if (ctx.role !== "super") { ctx.go("#/live"); return; }
-    cleanup = instructors.mount(view, ctx);
+    cleanup = instructors.mount(view, ctx, id);
   }
   else cleanup = live.mountActive(view, ctx);
   scrollTo(0, 0);

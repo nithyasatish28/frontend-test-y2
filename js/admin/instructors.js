@@ -3,13 +3,15 @@
 // Letting someone in is the only way to become an instructor from inside the app, and only the
 // super admin can do it — the first account set up, plus anyone it has passed the role to.
 // An ordinary instructor sees the list and nothing else; the rules enforce that, not this file.
-import { esc, dateTime, confirmClick, toast } from "../lib/util.js";
+import { esc, day, dateTime, fmtPts, confirmClick, toast } from "../lib/util.js";
 import { INSTRUCTOR_EMAIL_DOMAIN } from "../config.js";
 
-export function mount(view, ctx) {
+export function mount(view, ctx, uid) {
   const { store } = ctx;
   // The router keeps everyone else out, and the rules refuse them the data even if they get here.
   if (ctx.role !== "super") { view.innerHTML = ""; return () => {}; }
+  // One instructor's own work. Nobody's sets or sessions are on show until you ask for them.
+  if (uid) return one(view, ctx, uid);
   let admins = [], requests = [];
 
   view.innerHTML = `
@@ -70,7 +72,7 @@ export function mount(view, ctx) {
       <tbody>${rows.map(a => {
         const self = a.id === ctx.user?.uid, sup = roleOf(a) === "super";
         return `<tr>
-          <td><b>${esc(a.name || "—")}</b>${self ? ` <span class="spill done">you</span>` : ""}</td>
+          <td><a href="#/instructors/${esc(a.id)}"><b>${esc(a.name || "—")}</b></a>${self ? ` <span class="spill done">you</span>` : ""}</td>
           <td class="mono">${esc(a.email || "")}</td>
           <td>${sup ? `<span class="spill live">super admin</span>` : `<span class="spill off">no</span>`}</td>
           <td style="text-align:right;white-space:nowrap">${self
@@ -129,4 +131,54 @@ export function mount(view, ctx) {
   const offR = store.watchRequests((list, err) => { if (err) return toast(err.message, "err"); requests = list || []; drawRequests(); });
   drawAdmins(); drawRequests();
   return () => { offA(); offR(); };
+}
+
+/* ─────────── One instructor's work ─────────── */
+// Reached only by asking: the lists everywhere else show your own work, so a colleague's sets
+// and sessions are never in front of you by accident.
+function one(view, ctx, uid) {
+  const { store } = ctx;
+  let who = null, sets = [], sessions = [];
+  view.innerHTML = `
+    <a class="crumb" href="#/instructors">← All instructors</a>
+    <section class="card"><h1 style="margin:0" data-name>Loading…</h1><p class="sub" data-mail></p></section>
+    <section class="card"><h2>Question sets</h2><div class="set-cards" data-sets></div></section>
+    <section class="card"><h2>Sessions</h2><div class="tablewrap"><table class="sc" data-sessions></table></div></section>`;
+  const $ = s => view.querySelector(s);
+
+  const drawWho = () => {
+    $("[data-name]").textContent = who ? (who.name || who.email || "This instructor") : "This instructor";
+    $("[data-mail]").innerHTML = who
+      ? `${esc(who.email || "")} · ${sets.length} question set${sets.length === 1 ? "" : "s"} · ${sessions.length} session${sessions.length === 1 ? "" : "s"}`
+      : "They may have been removed.";
+  };
+  const drawSets = () => {
+    $("[data-sets]").innerHTML = sets.length ? sets.map(x => {
+      const n = (x.questions || []).length;
+      return `<a class="set-card" href="#/questions/${esc(x.id)}"><h3>${esc(x.title || "Untitled")}</h3>
+        <div class="meta">${n} question${n === 1 ? "" : "s"} · ${x.minutes || 45} min${x.updatedAt ? " · edited " + day(x.updatedAt) : ""}</div>
+        ${x.description ? `<div>${esc(x.description)}</div>` : ""}</a>`;
+    }).join("") : `<p class="note" style="margin:0">No question sets.</p>`;
+  };
+  const drawSessions = () => {
+    const t = $("[data-sessions]");
+    t.innerHTML = `<thead><tr><th>When</th><th>Title</th><th>From</th><th class="n">Joined</th><th class="n">Submitted</th></tr></thead>
+      <tbody>${sessions.length ? sessions.map(x => {
+        const st = x.stats || {};
+        return `<tr class="click" data-id="${esc(x.id)}" tabindex="0"><td>${x.createdAt ? esc(dateTime(x.createdAt)) : "–"}</td>
+          <td class="name">${esc(x.title || "Untitled")}</td><td>${esc(x.setTitle || "")}</td>
+          <td class="n">${st.joined ?? "–"}</td><td class="n">${st.submitted ?? "–"}</td></tr>`;
+      }).join("") : `<tr><td colspan="5" class="empty">No sessions.</td></tr>`}</tbody>`;
+    t.querySelectorAll("tr[data-id]").forEach(tr => {
+      const open = () => ctx.go("#/session/" + tr.dataset.id);
+      tr.addEventListener("click", open);
+      tr.addEventListener("keydown", e => { if (e.key === "Enter") open(); });
+    });
+  };
+
+  const offA = store.watchAdmins(list => { who = (list || []).find(a => a.id === uid) || null; drawWho(); });
+  const offS = store.watchSets((l, err) => { if (err) return toast(err.message, "err"); sets = l || []; drawSets(); drawWho(); }, uid);
+  const offSe = store.watchSessions((l, err) => { if (err) return toast(err.message, "err"); sessions = l || []; drawSessions(); drawWho(); }, uid);
+  drawSets(); drawSessions();
+  return () => { offA(); offS(); offSe(); };
 }

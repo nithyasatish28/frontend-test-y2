@@ -1,4 +1,4 @@
-// Starter question sets. Admin → Questions → “Add a starter set” copies one into your account.
+// Starter question sets. Every instructor gets their own copy of both, the first time they
 // Generated file: edit the sets in the app, not here.
 export const STARTER_SETS = [
  {

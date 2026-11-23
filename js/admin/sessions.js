@@ -12,7 +12,9 @@ export const phasePill = (s, active) => {
     "";
 };
 
-export function mount(view, ctx) {
+// owner: whose sessions to list. Left out it means your own — a colleague's are reached from
+// the Instructors tab, the same way their question sets are.
+export function mount(view, ctx, owner) {
   const { store } = ctx;
   view.innerHTML = `
     <div class="page-head"><h1>Sessions</h1><button class="btn ghost" data-import type="button">Import old results</button><button class="btn" data-new type="button">New session</button></div>
@@ -37,7 +39,7 @@ export function mount(view, ctx) {
       tr.addEventListener("keydown", e => { if (e.key === "Enter") open(); });
     });
   };
-  const offSessions = store.watchSessions((l, err) => { if (err) toast(err.message, "err"); list = l; draw(); }, ctx.scope());
+  const offSessions = store.watchSessions((l, err) => { if (err) toast(err.message, "err"); list = l; draw(); }, owner || ctx.user.uid);
   const offSettings = ctx.onSettings(draw);
   return () => { offSessions(); offSettings(); };
 }
@@ -46,7 +48,7 @@ export function mount(view, ctx) {
 export async function newSession(ctx) {
   const { store } = ctx;
   let sets = [];
-  const off = store.watchSets(l => { sets = l; fill(); }, ctx.scope());
+  const off = store.watchSets(l => { sets = l; fill(); }, ctx.user.uid);
   const today = new Date().toLocaleDateString([], { day: "numeric", month: "short" });
   const d = dialog(`
     <form class="dlg-body" novalidate>

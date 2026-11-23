@@ -7,7 +7,7 @@ import { esc, day, uid as randomId, toast } from "../lib/util.js";
 import { STARTER_SETS } from "../data/starter-sets.js";
 import { downloadTemplate, uploadCSV } from "./csv-questions.js";
 
-const TYPE_NAMES = { mcq: "multiple choice", blanks: "fill in the blanks", code: "code" };
+const TYPE_NAMES = { mcq: "multiple choice", blanks: "fill in the blanks", code: "code", subjective: "written" };
 export const blankSet = () => ({
   title: "New question set", description: "", minutes: 45, points: 1, hintPenalty: 0.5, partMarks: true,
   // A neutral name: a part can hold any mix of question types, and naming it after one of
@@ -15,8 +15,12 @@ export const blankSet = () => ({
   sections: [{ id: "s" + randomId(6), title: "Part A" }], questions: [],
 });
 
-export function mount(view, ctx) {
+// owner: whose sets to show. Left out it means your own — the super admin's Questions tab is
+// their own work, not everybody's. A colleague's sets are reached from the Instructors tab.
+export function mount(view, ctx, owner) {
   const { store } = ctx;
+  const who = owner || ctx.user.uid;
+  const theirs = who !== ctx.user.uid;
   view.innerHTML = `
     <div class="page-head"><h1>Question sets</h1>
       <button class="btn ghost" data-tpl type="button">Download CSV template</button>
@@ -30,7 +34,7 @@ export function mount(view, ctx) {
   const draw = () => {
     $("[data-cards]").innerHTML = sets.length ? sets.map(s => {
       const qs = s.questions || [], counts = {};
-      qs.forEach(q => { const k = q.type === "code" ? (q.lang === "python" ? "Python" : q.lang === "terminal" ? "terminal" : q.lang === "react" ? "React" : "JavaScript") + " code" : TYPE_NAMES[q.type]; counts[k] = (counts[k] || 0) + 1; });
+      qs.forEach(q => { const k = q.type === "code" ? (q.lang === "python" ? "Python" : q.lang === "terminal" ? "terminal" : q.lang === "react" ? "React" : "JavaScript") + " code" : (TYPE_NAMES[q.type] || q.type); counts[k] = (counts[k] || 0) + 1; });
       return `<a class="set-card" href="#/questions/${esc(s.id)}"><h3>${esc(s.title || "Untitled")}</h3>
         <div class="meta">${qs.length} question${qs.length === 1 ? "" : "s"} · ${s.minutes || 45} min${s.updatedAt ? " · edited " + day(s.updatedAt) : ""}${
           ctx.role === "super" && s.ownerUid && s.ownerUid !== ctx.user.uid ? ` · <b>${esc(s.ownerName || "another instructor")}</b>` : ""}</div>
@@ -43,7 +47,7 @@ export function mount(view, ctx) {
     if (err) return toast(err.message, "err");
     sets = l; draw();
     // Nothing of their own, and they have never been given the starters: hand them over once.
-    if (sets.length || seeding || ctx.settings.starters || !ctx.user) return;
+    if (theirs || sets.length || seeding || ctx.settings.starters || !ctx.user) return;
     seeding = true;
     try {
       for (const starter of STARTER_SETS) {
@@ -51,7 +55,7 @@ export function mount(view, ctx) {
       }
       await store.setSettings({ starters: true }, ctx.user.uid);
     } catch (e) { toast(e.message, "err"); seeding = false; }
-  }, ctx.scope());
+  }, who);
 
   $("[data-new]").addEventListener("click", async () => {
     try { const id = await store.saveSet(null, { ...blankSet(), ownerUid: ctx.user.uid, ownerName: ctx.user.email || "" }); ctx.go("#/questions/" + id); } catch (e) { toast(e.message, "err"); }
