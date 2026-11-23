@@ -2,7 +2,7 @@
 
 A test-taking app for a class: students open the session’s link and type their **name** (no accounts), wait in a waiting room, and start together when you press Start. You watch every answer live, keep every past session, and write your own questions — multiple choice, fill in the blanks, and code in **JavaScript, React, Python** or **terminal commands**.
 
-- `index.html` — the student page
+- `test.html` — the student page (the bare web address is the instructor page)
 - `admin.html` — the instructor page (Live · Sessions · Questions · Students)
 
 Data lives in **Firebase** (free plan is enough for a class). Until you add your Firebase details, the app runs in **demo mode**, with everything stored in your browser.
@@ -161,7 +161,8 @@ Python runs in the student's browser (Pyodide). For Python questions the hidden 
 Plain HTML, CSS and JavaScript modules — no build step. Everything you'd change is in small files:
 
 ```
-index.html, admin.html     the two pages
+admin.html, test.html      the two pages: admin.html is served at the bare address,
+                           test.html is what a session link opens
 css/                       base.css (shared), student.css, admin.css
 js/config.js               your Firebase details and app title  ← edit this
 js/store/                  the data layer: firebase.js (real), demo.js (in-browser), index.js picks one

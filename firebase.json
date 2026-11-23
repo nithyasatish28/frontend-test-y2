@@ -28,9 +28,15 @@
     ],
     "redirects": [
       {
+        "source": "/index.html",
+        "destination": "/test.html",
+        "type": 301
+      }
+    ],
+    "rewrites": [
+      {
         "source": "/",
-        "destination": "/admin.html",
-        "type": 302
+        "destination": "/admin.html"
       }
     ]
   }

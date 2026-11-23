@@ -21,7 +21,7 @@ ctx.onSettings = fn => { settingsSubs.add(fn); fn(ctx.settings); return () => se
 // null means "everything", and only the super admin may ask for that.
 ctx.scope = () => (ctx.role === "super" ? null : ctx.user?.uid || "__nobody__");
 ctx.studentLink = sid => {
-  const u = new URL("index.html" + (sid ? "?s=" + sid : ""), location.href);
+  const u = new URL("test.html" + (sid ? "?s=" + sid : ""), location.href);
   if (ctx.store && ctx.store.mode === "demo") u.searchParams.set("demo", "1");
   return u.href;
 };

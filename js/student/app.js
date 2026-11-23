@@ -1,4 +1,4 @@
-// Student page. Every session has its own link: index.html?s=<session id>.
+// Student page. Every session has its own link: test.html?s=<session id>.
 // Open the link → type your name → waiting room → test. The link closes 10 minutes after the test ends.
 import { APP_TITLE } from "../config.js";
 import { openStore } from "../store/index.js";
