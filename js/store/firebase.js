@@ -7,7 +7,7 @@
 //   questionSets/{id}               the editable sets, answers included (instructors only)
 //   sessions/{id}                   one sitting of a test: status, timer, and the questions students see
 //   sessions/{id}/attempts/{uid}    one student's answers in that session
-import { firebaseConfig, FIREBASE_VERSION, STUDENT_EMAIL_DOMAIN } from "../config.js";
+import { firebaseConfig, FIREBASE_VERSION, STUDENT_EMAIL_DOMAIN, INSTRUCTOR_EMAIL_DOMAIN } from "../config.js";
 import { nameKey, uid as randomId } from "../lib/util.js";
 
 const CDN = `https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/`;
@@ -24,6 +24,11 @@ const MESSAGES = {
   "auth/operation-not-allowed": "That sign-in type isn’t switched on in Firebase (Authentication → Sign-in method: Email/Password for you, Anonymous for students).",
   "auth/admin-restricted-operation": "Students can’t join yet: switch on Anonymous sign-in in Firebase (Authentication → Sign-in method → Anonymous).",
   "auth/configuration-not-found": "Authentication isn’t set up in Firebase yet (Authentication → Get started).",
+  "auth/popup-closed-by-user": "The Google window closed before you finished signing in.",
+  "auth/cancelled-popup-request": "The Google window closed before you finished signing in.",
+  "auth/popup-blocked": "Your browser blocked the Google window. Allow pop-ups for this site, then try again.",
+  "auth/account-exists-with-different-credential": "That email already has a password account here. Log in with the password instead.",
+  "auth/unauthorized-domain": "This web address isn’t allowed to sign people in yet (Firebase → Authentication → Settings → Authorized domains).",
   "permission-denied": "Firebase said no (permission denied). Check that the security rules from firestore.rules are published.",
   "unavailable": "Can’t reach Firebase right now. Check the internet connection.",
 };
@@ -79,6 +84,16 @@ export async function create(role) {
     studentSignIn: wrap(async () => (await AU.signInAnonymously(auth)).user.uid),
 
     adminSignIn: wrap(async (email, password) => (await AU.signInWithEmailAndPassword(auth, email.trim(), password)).user.uid),
+
+    // Google sign-in. `hd` asks Google to offer only work accounts in the chooser — a kindness,
+    // not a lock: it can be got around, and the real test is workEmail() in firestore.rules,
+    // which refuses anyone else no matter how they signed in.
+    adminSignInGoogle: wrap(async () => {
+      const provider = new AU.GoogleAuthProvider();
+      provider.setCustomParameters({ hd: INSTRUCTOR_EMAIL_DOMAIN, prompt: "select_account" });
+      const cred = await AU.signInWithPopup(auth, provider);
+      return cred.user.uid;
+    }),
 
     /* ─────────── Becoming an instructor ─────────── */
     // Anyone can make an account; it is worth nothing on its own. Only a verified work address

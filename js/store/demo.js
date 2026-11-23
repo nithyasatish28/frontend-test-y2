@@ -89,6 +89,7 @@ export async function create(role) {
       setUser({ uid: id, email: hit[1].email, emailVerified: hit[1].verified !== false });
       return id;
     },
+    async adminSignInGoogle() { throw fail("Demo mode can’t use Google sign-in. Log in with demo@example.com / demo1234."); },
     async adminResetPassword() { throw fail("Demo mode can’t send emails. The demo login is demo@example.com / demo1234."); },
 
     /* ─────────── Becoming an instructor ─────────── */

@@ -27,7 +27,7 @@ Questions → *Add a starter set* is already done for you in the demo. Make a se
 
 1. Go to <https://console.firebase.google.com> → **Add project**. Google Analytics isn't needed.
 2. **Add a web app**: on the project's home page press the `</>` icon, give it a name, and copy the `firebaseConfig` it shows. Paste the values into **`js/config.js`** (replace the `PASTE_HERE` block). Also set `APP_TITLE` there.
-3. **Authentication** → *Get started* → *Sign-in method*: enable **Email/Password** (for you) and **Anonymous** (for students, who only type a name) → Save.
+3. **Authentication** → *Get started* → *Sign-in method*: enable **Google** and **Email/Password** (both for instructors) and **Anonymous** (for students, who only type a name) → Save. For Google, pick a support email when it asks; nothing else needs changing.
 4. **Firestore Database** → *Create database* → pick a location near you (for India: `asia-south1`, Mumbai) → **production mode**.
 5. Firestore → **Rules** tab → delete what's there, paste the whole of **`firestore.rules`**, press **Publish**. (The app doesn't work until the rules are published.)
 6. **Put the folder online.** Either:
@@ -39,6 +39,8 @@ Questions → *Add a starter set* is already done for you in the demo. Make a se
      firebase deploy             # uploads the pages and the rules
      ```
      Your site is `https://<project-id>.web.app`.
+
+     **Your own web address.** Firebase console → Hosting → *Add custom domain* → type the address you want (`checkpoint.yourschool.edu`). It gives you a TXT record to prove you own the domain, then the records to point at it; add those wherever your DNS lives. The certificate is free and automatic. Two things to watch: if your DNS is on **Cloudflare**, set those records to **DNS only** (grey cloud, not the orange one) or the certificate can't be issued; and whatever address you end up on, add it under **Authentication → Settings → Authorized domains**, or nobody will be able to log in.
    - or **GitHub Pages / any static host**, like the old version. Then add that domain in Authentication → Settings → **Authorized domains**.
 7. Open **`admin.html`** on your site. The first time it shows **Set up**: make your instructor account with your **@atriauniversity.edu.in** email. Firebase emails you a link; open it, come back, and press *I've done that*. You become the instructor. Do this straight away — the first account is the only one that lets itself in.
 
@@ -70,9 +72,13 @@ Questions → *Add a starter set* is already done for you in the demo. Make a se
 
 Instructors sign themselves up, with three gates in the way:
 
+Instructors can sign in with **Google** (one press, no password to remember) or with an email and password. Either way the same three gates apply:
+
 1. **The email domain.** Only `@atriauniversity.edu.in` addresses. Set in two places that must agree: `INSTRUCTOR_EMAIL_DOMAIN` in `js/config.js` (for the message on screen) and `workEmail()` in `firestore.rules` (which is the one that actually enforces it). Change both, then publish the rules again.
-2. **The email itself.** They have to open the link Firebase sends, so only someone who can read that mailbox gets in. A made-up address on the right domain gets nowhere.
-3. **The super admin.** One person approves every request, on the **Instructors** tab. Not any instructor — only the super admin.
+2. **The email itself.** With Google that is settled by signing in. With a password they have to open the link Firebase sends, so either way only someone who can read that mailbox gets in. A made-up address on the right domain gets nowhere.
+3. **The super admin.** One person approves every request, on the **Instructors** tab. Not any instructor — only the super admin. Signing in is not the same as being let in: anyone with a work address can reach the waiting room, and no further.
+
+The Google button asks Google to show only `@atriauniversity.edu.in` accounts, which is a convenience rather than a lock — someone could still arrive with a personal address. They are told it can't be made an instructor, and the database refuses them everything regardless of how they signed in.
 
 Gate 3 is there because at most universities students have an address on the same domain as staff. Without it, any student could make themselves an instructor and read every answer. If your students are on a *different* domain and you'd rather skip approval, change the `pendingAdmins` rule in `firestore.rules` so a verified work email may write its own `admins/{uid}` document, and have `login.js` call that instead of `requestAccess()`.
 

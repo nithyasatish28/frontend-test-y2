@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Class Test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/student.css">
+<!-- React + Babel run the students' React answers in the page. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script type="module" src="js/student/app.js"></script>
+</head>
+<body>
+<div class="demo-bar" id="demoBar" hidden>Demo mode: everything is saved in this browser only.</div>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand" id="brand">Class Test</div>
+    <span class="who" id="who"></span>
+    <button class="chip" id="scoreChip" type="button" hidden>Score <b id="scoreTop">0</b></button>
+    <span class="chip" id="syncChip" hidden></span>
+    <button class="chip" id="timeChip" type="button" hidden>⏱ <b id="timeTop">–</b></button>
+    <button class="chip" id="signOutTop" type="button" hidden>Sign out</button>
+  </div>
+  <nav class="tabs" role="tablist" id="tabs" hidden>
+    <button class="tab" role="tab" id="tab-test" aria-selected="true" type="button">Test</button>
+    <button class="tab" role="tab" id="tab-scores" aria-selected="false" type="button">Scores</button>
+    <button class="tab" role="tab" id="tab-timer" aria-selected="false" type="button">Timer</button>
+  </nav>
+</header>
+<div class="banner" id="banner" hidden></div>
+
+<main class="wrap">
+  <section id="view-test" class="test" hidden>
+    <aside class="qlist" id="qlist" aria-label="Questions"></aside>
+    <article class="qcard" id="qcard" aria-live="polite"></article>
+  </section>
+
+  <section id="view-scores" hidden>
+    <div class="board">
+      <div class="qcard">
+        <div class="qhead"><span class="pill">Your score</span></div>
+        <div class="big" id="bigScore" style="margin-top:12px">0</div>
+        <div class="stats">
+          <div><b id="stCorrect">0</b><span id="stCorrectLabel">correct</span></div>
+          <div><b id="stHints">0</b><span id="stHintsLabel">hints</span></div>
+          <div><b id="stLeft">0</b><span>still to do</span></div>
+        </div>
+        <div class="actions">
+          <button class="btn dark" id="finishBtn" type="button">Finish and submit</button>
+        </div>
+        <p class="note" id="finishNote">Finishing locks every answer. You can’t undo it.</p>
+      </div>
+      <div class="qcard tablewrap"><table class="sc" id="scoreTable"></table></div>
+    </div>
+  </section>
+
+  <section id="view-timer" hidden>
+    <div class="board">
+      <div class="qcard timer-card">
+        <svg class="ring" viewBox="0 0 260 260" aria-hidden="true">
+          <circle cx="130" cy="130" r="112" fill="none" stroke="#e3e9e6" stroke-width="18"/>
+          <circle id="ringArc" cx="130" cy="130" r="112" fill="none" stroke="#0f7a5c" stroke-width="18" stroke-linecap="round" transform="rotate(-90 130 130)" stroke-dasharray="703.7" stroke-dashoffset="0"/>
+          <text id="ringText" x="130" y="140" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="38" font-weight="700" fill="#17201d">–</text>
+          <text x="130" y="172" text-anchor="middle" font-family="Instrument Sans, sans-serif" font-size="14" fill="#5d6965">left</text>
+        </svg>
+        <div class="facts">
+          <div><b id="tStart">–</b><span>Started at</span></div>
+          <div><b id="tEnd">–</b><span>Ends at</span></div>
+          <div><b id="tUsed">0:00</b><span>Time used</span></div>
+          <div><b id="tPace">–</b><span>Time per question left</span></div>
+        </div>
+      </div>
+      <div class="qcard">
+        <div class="qhead"><span class="pill">Pace</span></div>
+        <h2 style="margin-top:10px">How the test is going</h2>
+        <div class="tablewrap"><table class="sc" id="paceTable"></table></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Everything before the test: loading, login, waiting room, messages -->
+<div class="overlay light" id="gate">
+  <div class="sheet" id="gateSheet">
+    <h1 id="gateTitle">Class Test</h1>
+    <p class="note" id="gateLoading">Loading…</p>
+  </div>
+</div>
+</body>
+</html>
