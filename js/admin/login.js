@@ -91,7 +91,10 @@ function form(ctx, mode) {
       if (!isWorkEmail(email)) { say(`Use your work email: it has to end with <b>${esc(AT)}</b>.`); f.email.focus(); return; }
       if (pw.length < 8) { say("Use a password with at least 8 characters."); return; }
       if (pw !== f.pw2.value) { say("The two passwords are different."); return; }
-    } else if (!/^\S+@\S+\.\S+$/.test(email)) { say("Type your email address."); return; }
+    } else {
+      if (!/^\S+@\S+\.\S+$/.test(email)) { say("Type your email address."); f.email.focus(); return; }
+      if (!pw) { say("Type your password."); f.pw.focus(); return; }
+    }
     go.disabled = true;
     // The name is kept here, so the next screen can offer it without asking again.
     if (newAccount) ctx.pendingName = f.who.value.trim();

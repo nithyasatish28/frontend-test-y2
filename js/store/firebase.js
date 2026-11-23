@@ -24,6 +24,11 @@ const MESSAGES = {
   "auth/operation-not-allowed": "That sign-in type isn’t switched on in Firebase (Authentication → Sign-in method: Email/Password for you, Anonymous for students).",
   "auth/admin-restricted-operation": "Students can’t join yet: switch on Anonymous sign-in in Firebase (Authentication → Sign-in method → Anonymous).",
   "auth/configuration-not-found": "Authentication isn’t set up in Firebase yet (Authentication → Get started).",
+  "auth/missing-email": "Type your email address.",
+  "auth/missing-password": "Type your password.",
+  "auth/argument-error": "Fill in both the email and the password.",
+  "auth/invalid-login-credentials": "Wrong email or password.",
+  "auth/user-disabled": "That account has been switched off. Ask whoever set up this app.",
   "auth/popup-closed-by-user": "The Google window closed before you finished signing in.",
   "auth/cancelled-popup-request": "The Google window closed before you finished signing in.",
   "auth/popup-blocked": "Your browser blocked the Google window. Allow pop-ups for this site, then try again.",
@@ -32,9 +37,23 @@ const MESSAGES = {
   "permission-denied": "Firebase said no (permission denied). Check that the security rules from firestore.rules are published.",
   "unavailable": "Can’t reach Firebase right now. Check the internet connection.",
 };
+// Firebase words its errors for developers — "Firebase: Error (auth/argument-error)." means
+// nothing to a teacher. Anything not in the list above gets a human sentence instead, with the
+// code kept at the end so it can still be looked up.
 export const friendlyError = e => {
-  const err = new Error(MESSAGES[e?.code] || e?.message || String(e));
-  err.code = e?.code; return err;
+  const code = e?.code;
+  // Only a string or an Error carries words worth showing. Anything else stringifies to
+  // "[object Object]", which is worse than saying nothing.
+  const raw = (typeof e === "string" ? e : String(e?.message || "")).replace(/^Firebase:\s*/, "").trim();
+  let msg = MESSAGES[code];
+  if (!msg) {
+    const canned = !raw || /^Error\s*\(.*\)\.?$/.test(raw);     // their "Error (auth/foo)." shape
+    msg = canned
+      ? `Something went wrong${code ? ` (${code})` : ""}. Try again, and tell your instructor if it keeps happening.`
+      : raw;
+  }
+  const err = new Error(msg);
+  err.code = code; return err;
 };
 const wrap = fn => async (...a) => { try { return await fn(...a); } catch (e) { throw e?.friendly ? e : friendlyError(e); } };
 const fail = msg => { const e = new Error(msg); e.friendly = true; return e; };
