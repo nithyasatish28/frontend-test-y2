@@ -26,7 +26,7 @@ const MESSAGES = {
   "auth/configuration-not-found": "Authentication isn’t set up in Firebase yet (Authentication → Get started).",
   "auth/missing-email": "Type your email address.",
   "auth/missing-password": "Type your password.",
-  "auth/argument-error": "Fill in both the email and the password.",
+  "auth/argument-error": "That didn’t work. Refresh the page and try again.",
   "auth/invalid-login-credentials": "Wrong email or password.",
   "auth/user-disabled": "That account has been switched off. Ask whoever set up this app.",
   "auth/popup-closed-by-user": "The Google window closed before you finished signing in.",
@@ -64,7 +64,13 @@ export async function create(role) {
   ]);
   // Students get their own app instance, so a student tab never logs the instructor out (or the other way round).
   const app = role === "student" ? A.initializeApp(firebaseConfig, "student") : A.initializeApp(firebaseConfig);
-  const auth = AU.initializeAuth(app, { persistence: AU.browserLocalPersistence });
+  // initializeAuth (rather than getAuth) takes nothing for granted, so the thing that knows how
+  // to open a sign-in popup has to be handed over explicitly. Without it signInWithPopup throws
+  // auth/argument-error before any window appears — which is exactly what it did.
+  const auth = AU.initializeAuth(app, {
+    persistence: AU.browserLocalPersistence,
+    popupRedirectResolver: AU.browserPopupRedirectResolver,
+  });
   const db = F.getFirestore(app);
   let offset = 0;
 

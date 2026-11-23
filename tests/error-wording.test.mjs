@@ -11,8 +11,13 @@ const friendlyError = new Function(`${block.replace(/^export /gm, "")}; return f
 
 const say = (code, message) => friendlyError({ code, message }).message;
 
-is("the one a real user hit", say("auth/argument-error", "Firebase: Error (auth/argument-error)."),
-   "Fill in both the email and the password.");
+is("the one a real user hit reads as English",
+   /Firebase:|Error \(/.test(say("auth/argument-error", "Firebase: Error (auth/argument-error).")), false);
+
+// The popup never opened because initializeAuth was given no popupRedirectResolver. Firebase
+// answers that with auth/argument-error and no window at all.
+const store = (await import("node:fs")).readFileSync(new URL("../js/store/firebase.js", import.meta.url), "utf8");
+is("auth is told how to open a popup", /popupRedirectResolver:\s*AU\.browserPopupRedirectResolver/.test(store), true);
 is("a missing password", say("auth/missing-password", "Firebase: Error (auth/missing-password)."), "Type your password.");
 is("a wrong password", say("auth/invalid-credential", "Firebase: Error (auth/invalid-credential)."), "Wrong password.");
 is("a blocked popup", say("auth/popup-blocked", "x").includes("Allow pop-ups"), true);
