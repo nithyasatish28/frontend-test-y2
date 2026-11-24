@@ -64,6 +64,61 @@ def _not_right(got, reveal=False, want=None):
         return "Not right yet. Your code gave nothing back.\n\u2192 Does it return a value?"
     return f"Not right yet. Your code gave back {got!r}."
 
+# ─────────── Libraries the browser doesn't ship ───────────
+# Pyodide has no PyJWT, so `import jwt` would fail and a question about tokens could never run.
+# This is a small stand-in: HS256 only, but real HMAC, real base64url, the same exceptions, and
+# the same handling of a datetime `exp`. It is installed only when the real package isn't there,
+# so the day Pyodide ships PyJWT the real one wins and this disappears.
+def _install_jwt():
+    import types, base64, hmac, hashlib, time
+
+    mod = types.ModuleType("jwt")
+
+    class PyJWTError(Exception): pass
+    class InvalidTokenError(PyJWTError): pass
+    class ExpiredSignatureError(InvalidTokenError): pass
+    class InvalidSignatureError(InvalidTokenError): pass
+
+    def b64(raw):  return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+    def unb64(txt): return base64.urlsafe_b64decode(txt + "=" * (-len(txt) % 4))
+
+    def encode(payload, key, algorithm="HS256", headers=None):
+        body = dict(payload)
+        for field in ("exp", "iat", "nbf"):
+            if hasattr(body.get(field), "timestamp"):
+                body[field] = int(body[field].timestamp())
+        head = b64(json.dumps({"alg": algorithm, "typ": "JWT"}, sort_keys=True).encode())
+        data = b64(json.dumps(body, sort_keys=True, default=str).encode())
+        sig = b64(hmac.new(str(key).encode(), f"{head}.{data}".encode(), hashlib.sha256).digest())
+        return f"{head}.{data}.{sig}"
+
+    def decode(token, key, algorithms=None, **kw):
+        try:
+            head, data, sig = str(token).split(".")
+        except ValueError:
+            raise InvalidTokenError("Not enough segments")
+        want = b64(hmac.new(str(key).encode(), f"{head}.{data}".encode(), hashlib.sha256).digest())
+        if not hmac.compare_digest(sig, want):
+            raise InvalidSignatureError("Signature verification failed")
+        body = json.loads(unb64(data))
+        if "exp" in body and float(body["exp"]) < time.time():
+            raise ExpiredSignatureError("Signature has expired")
+        return body
+
+    for name, value in [("encode", encode), ("decode", decode), ("PyJWTError", PyJWTError),
+                        ("InvalidTokenError", InvalidTokenError), ("DecodeError", InvalidTokenError),
+                        ("ExpiredSignatureError", ExpiredSignatureError),
+                        ("InvalidSignatureError", InvalidSignatureError)]:
+        setattr(mod, name, value)
+    mod.exceptions = mod
+    sys.modules["jwt"] = mod
+
+for _name, _install in [("jwt", _install_jwt)]:
+    try:
+        __import__(_name)
+    except ImportError:
+        _install()
+
 def _strip_comments(src):
     return re.sub(r"(?m)^\s*#.*$|\s+#[^'\"\n]*$", "", src)
 
