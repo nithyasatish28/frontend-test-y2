@@ -65,9 +65,9 @@ def _not_right(got, reveal=False, want=None):
     return f"Not right yet. Your code gave back {got!r}."
 
 # ─────────── Libraries the browser doesn't ship ───────────
-# Pyodide has no PyJWT, so `import jwt` would fail and a question about tokens could never run.
+# Pyodide has no PyJWT, so "import jwt" would fail and a question about tokens could never run.
 # This is a small stand-in: HS256 only, but real HMAC, real base64url, the same exceptions, and
-# the same handling of a datetime `exp`. It is installed only when the real package isn't there,
+# the same handling of a datetime "exp". It is installed only when the real package isn't there,
 # so the day Pyodide ships PyJWT the real one wins and this disappears.
 def _install_jwt():
     import types, base64, hmac, hashlib, time
