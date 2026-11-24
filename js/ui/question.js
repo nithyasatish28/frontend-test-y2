@@ -213,6 +213,16 @@ function code(ctx) {
       <div class="pane"><h4>Checks${exam ? " your instructor will run" : ""}</h4><ul class="checks">${names.map(() => `<li class="wait"><span class="i">○</span><span></span></li>`).join("") || `<li class="wait"><span class="i">–</span><span>This question has no checks yet.</span></li>`}</ul></div>
     </div>`;
   body.querySelectorAll(".checks li").forEach((li, i) => { if (names[i]) li.lastElementChild.textContent = names[i]; });
+  const paint = res => {
+    const items = body.querySelectorAll(".checks li");
+    res.forEach((r, i) => {
+      const li = items[i]; if (!li) return;
+      li.className = r.pass ? "pass" : "fail";
+      li.firstElementChild.textContent = r.pass ? "\u2713" : "\u2717";
+      li.querySelector(".why")?.remove();
+      if (!r.pass && r.why) { const w = document.createElement("span"); w.className = "why"; w.textContent = r.why; li.lastElementChild.append(w); }
+    });
+  };
   const con = body.querySelector(".console"), preview = body.querySelector(".preview"), stdin = body.querySelector(".stdin textarea");
   const log = (kind, text) => {
     const d = document.createElement("div"); d.className = kind === "log" ? "" : kind; d.textContent = text; con.append(d); con.scrollTop = con.scrollHeight;
@@ -228,6 +238,14 @@ function code(ctx) {
     : py ? "Press Run to see what your program prints. Press Check to test it."
     : "Press Run to see your console.log output. Press Check to test it.");
 
+  // Moving between questions re-renders this from scratch. Without this the ticks and crosses
+  // vanish and the student has to run everything again, which costs them time they are being
+  // timed on. The code is compared so that a stale pass is never shown against edited code.
+  if (!exam && Array.isArray(entry.results) && entry.results.length && entry.checked != null && entry.checked === entry.code) {
+    paint(entry.results);
+    log("info", `Your last run: ${entry.checks || ""} checks pass. Press Check again after you change the code.`);
+  }
+
   const run = async quiet => {
     if (!quiet) { con.innerHTML = ""; log("info", `▶ Running ${q.label || ""}`); }
     await runCode(q, ed.value, { log, previewHost: preview, stdin: stdin ? stdin.value : undefined, onLoading });
@@ -242,16 +260,16 @@ function code(ctx) {
     const src = ed.value;
     entry.code = src;
     const res = await checkCode(q, src, { onLoading: () => { con.innerHTML = ""; onLoading(); }, onNote: msg => log("info", msg) });
-    res.forEach((r, i) => {
-      const li = list[i]; if (!li) return;
-      li.className = r.pass ? "pass" : "fail"; li.firstElementChild.textContent = r.pass ? "✓" : "✗";
-      if (!r.pass && r.why) { const w = document.createElement("span"); w.className = "why"; w.textContent = r.why; li.lastElementChild.append(w); }
-    });
+    paint(res);
     const passed = res.filter(r => r.pass).length, all = res.length > 0 && passed === res.length;
     const firstPass = all && entry.s !== "c" && !isLocked();
     if (!isLocked()) {
       if (firstPass) entry.s = "c";
       entry.checked = src; entry.checks = `${passed}/${res.length}`;
+      // Kept so that leaving the question and coming back doesn't throw the run away. The reason
+      // for a failure is worth more than the cross on its own, so it is kept too, but trimmed:
+      // a runaway message from somebody's code shouldn't grow the answer document without limit.
+      entry.results = res.map(r => ({ pass: !!r.pass, why: r.pass ? "" : String(r.why || "").slice(0, 200) }));
       onChange("check", { all, firstPass });
     }
     con.innerHTML = "";
