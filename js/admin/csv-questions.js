@@ -206,7 +206,8 @@ export async function uploadCSV(ctx, file) {
     <div class="dlg-body">
       <h2>New question set from ${esc(file.name)}</h2>
       <p style="margin-top:0">Found <b>${questions.length} question${questions.length === 1 ? "" : "s"}</b> in ${sections.length} part${sections.length === 1 ? "" : "s"}
-        (${byType("mcq")} multiple choice · ${byType("blanks")} blanks · ${byType("code")} code).</p>
+        (${[["mcq", "multiple choice"], ["blanks", "blanks"], ["code", "code"], ["subjective", "written"]]
+            .filter(([t]) => byType(t)).map(([t, name]) => `${byType(t)} ${name}`).join(" · ") || "none of a known type"}).</p>
       ${problems.length ? `<div class="issues"><b>Check these after importing</b> (they’re also flagged in the editor):<ul>${problems.slice(0, 10).map(p => `<li>${esc(p)}</li>`).join("")}${problems.length > 10 ? `<li>…and ${problems.length - 10} more</li>` : ""}</ul></div>` : ""}
       <label class="field"><span>Set title</span><input data-title value="${esc(file.name.replace(/\.csv$/i, "").replace(/[-_]+/g, " "))}"></label>
       <div class="form-grid cols-3">
@@ -227,6 +228,7 @@ export async function uploadCSV(ctx, file) {
         ownerUid: ctx.user.uid, ownerName: ctx.user.email || "",
         title: $("[data-title]").value.trim(), description: `Imported from ${file.name}`,
         minutes: Math.round(Number($("[data-min]").value)) || 45, points: Number($("[data-pts]").value) || 1, hintPenalty: Number($("[data-hint]").value) || 0,
+        partMarks: true,                       // part marks for blanks and code, as everywhere else
         sections, questions,
       });
       d.close("ok"); toast("Question set created. Run the tests on each code question’s model answer to be sure.");

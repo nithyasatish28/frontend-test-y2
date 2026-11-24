@@ -119,7 +119,7 @@ export async function newSession(ctx) {
       const now = f.now.checked;
       const id = await store.createSession({
         title: f.stitle.value.trim(), setId: s.id, setTitle: s.title || "", minutes: m,
-        points: s.points ?? 1, hintPenalty: s.hintPenalty ?? 0.5, partMarks: !!s.partMarks,
+        points: s.points ?? 1, hintPenalty: s.hintPenalty ?? 0.5, partMarks: s.partMarks !== false,
         liveMarking: !!f.live.checked,
         ownerUid: ctx.user.uid, ownerName: ctx.user.email || "", examMode: exam,
         // An exam keeps the salt back with everything else: with no keys to compare, it is useless

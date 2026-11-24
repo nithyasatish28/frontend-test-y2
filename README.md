@@ -143,7 +143,9 @@ To keep a copy of a set, or move one between people or projects, use **Download 
 ## 5. Good to know
 
 - **Free plan limits.** Firebase's free (Spark) plan allows 20,000 writes and 50,000 reads a day. As a rough guide, a 45-minute test with 60 students uses several thousand writes (answers plus a once-a-minute “still here” signal), so a few classes a day fit. Usage is shown in the Firebase console; the pay-as-you-go plan costs very little at this size.
-- **Part marks.** A question set can give part marks (it's a switch on the set, on for new ones): 3 of 4 blanks right is worth three quarters of the question, and so is 3 of 4 checks passing. A student who once passed every check keeps the whole mark even if they edit afterwards and break something — nobody loses a mark they had already earned.
+- **Part marks are on unless you turn them off.** 3 of 4 blanks right is worth three quarters of the question, and so is 3 of 4 checks passing on a code question. The switch is on the question set, under the hint cost. A student who once passed every check keeps the whole mark even if they edit afterwards and break something — nobody loses a mark they had already earned.
+
+  For a code question the part mark comes from the checks that passed, so it needs the checks to have been run: in a practice session that happens when the student presses *Check my answer*, and in an exam when you press *Mark this test*.
 
 - **How cheat-proof it is.** Answers are checked in the student's browser, as before: multiple-choice and blank answers are only sent as salted hashes, and the database rules stop students from reading other students' answers, opening a session’s link after it closes, changing their answers after they submit, or saving after the time limit (plus 3 minutes' grace).
 

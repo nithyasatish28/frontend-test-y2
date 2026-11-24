@@ -147,9 +147,10 @@ export function mount(view, ctx, setId) {
         <label class="field"><span>Points each</span><input data-k="points" type="number" min="0.5" step="0.5" value="${set.points ?? 1}"></label>
         <label class="field"><span>Hint cost</span><input data-k="hintPenalty" type="number" min="0" step="0.25" value="${set.hintPenalty ?? 0.5}"></label>
       </div>
-      <label class="field"><span>&nbsp;</span><span class="switch"><input type="checkbox" data-part ${set.partMarks ? "checked" : ""}> Part marks for blanks and code</span></label>
-      <p class="note" style="margin:-6px 0 10px">On, 3 of 4 blanks right is worth three quarters of the question, and so is 3 of 4 checks passing.
-        Off, only a completely right answer scores. Nobody ever loses a mark they already had.</p>
+      <label class="field"><span>&nbsp;</span><span class="switch"><input type="checkbox" data-part ${set.partMarks !== false ? "checked" : ""}> Part marks for blanks and code</span></label>
+      <p class="note" style="margin:-6px 0 10px">On by default: 3 of 4 blanks right is worth three quarters of the question, and so is 3 of 4 checks passing
+        on a code question. Turn it off and only a completely right answer scores. Either way nobody loses a mark they already had —
+        a student who once passed every check keeps the whole mark.</p>
       <h3>Parts and questions</h3>
       ${set.sections.map((s, i) => {
         const qs = lab.filter(q => q.section === s.id);
@@ -440,7 +441,7 @@ export function mount(view, ctx, setId) {
     const d = dialog(`<div class="dlg-body"><h2>Preview as a student</h2><p class="note" style="margin-top:0">Try it: nothing here is saved.</p><div class="preview-frame"><article class="qcard" data-card></article></div></div><div class="dlg-foot"><button class="btn" data-close type="button">Close</button></div>`, { wide: true });
     const entry = { s: null, h: false };
     const draw = () => renderQuestion(d.el.querySelector("[data-card]"), {
-      q: pq, entry, session: { points: set.points ?? 1, hintPenalty: set.hintPenalty ?? 0.5, partMarks: !!set.partMarks, salt: "preview" }, isLocked: () => false,
+      q: pq, entry, session: { points: set.points ?? 1, hintPenalty: set.hintPenalty ?? 0.5, partMarks: set.partMarks !== false, salt: "preview" }, isLocked: () => false,
       meta: { sectionTitle: sec?.title }, onChange: () => {},
     });
     draw();
