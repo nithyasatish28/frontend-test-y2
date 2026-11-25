@@ -30,7 +30,9 @@ export function mount(view, ctx, owner) {
       list.map(s => {
         const st = s.stats || {};
         return `<tr class="click" data-id="${esc(s.id)}" tabindex="0"><td>${s.createdAt ? dateTime(s.createdAt) : "–"}</td><td class="name">${esc(s.title || "Untitled")}${
-            ctx.role === "super" && s.ownerUid && s.ownerUid !== ctx.user.uid ? `<div class="note">${esc(s.ownerName || "another instructor")}</div>` : ""}</td><td>${esc(s.setTitle || "")}</td><td>${s.imported ? `<span class="spill off">Imported</span>` : phasePill(s, ctx.settings.activeSessionId === s.id)}</td>
+            ctx.role !== "super" || s.ownerUid === ctx.user.uid ? ""
+            : s.ownerUid ? `<div class="note">${esc(s.ownerName || "another instructor")}</div>`
+            : `<div class="note">no owner yet</div>`}</td><td>${esc(s.setTitle || "")}</td><td>${s.imported ? `<span class="spill off">Imported</span>` : phasePill(s, ctx.settings.activeSessionId === s.id)}</td>
           <td class="n">${st.joined ?? "–"}</td><td class="n">${st.submitted ?? "–"}</td><td class="n">${st.joined ? fmtPts(st.avg) + " / " + fmtPts(st.max ?? (s.questions || []).length) : "–"}</td><td class="n">${st.joined ? fmtPts(st.top) : "–"}</td></tr>`;
       }).join("") + "</tbody>";
     t.querySelectorAll("tr[data-id]").forEach(tr => {
@@ -39,7 +41,12 @@ export function mount(view, ctx, owner) {
       tr.addEventListener("keydown", e => { if (e.key === "Enter") open(); });
     });
   };
-  const offSessions = store.watchSessions((l, err) => { if (err) toast(err.message, "err"); list = l; draw(); }, owner || ctx.user.uid);
+  // The super admin's Sessions tab is everybody's. They run the thing, people ask them what
+  // happened in a test they didn't set, and a session made before instructors had their own
+  // accounts carries no owner at all — scoping this to one uid hides those completely.
+  // Question sets stay personal: those are read from the Instructors tab, which is what was asked for.
+  const whose = owner || (ctx.role === "super" ? null : ctx.user.uid);
+  const offSessions = store.watchSessions((l, err) => { if (err) toast(err.message, "err"); list = l; draw(); }, whose);
   const offSettings = ctx.onSettings(draw);
   return () => { offSessions(); offSettings(); };
 }
