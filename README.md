@@ -98,7 +98,9 @@ Everyone else is an ordinary instructor: they get **Live**, **Sessions** and **Q
 
 ### Everyone's work is their own
 
-Each instructor sees only the question sets and sessions **they** made, and only their own students' answers. The super admin sees everything, so they can help when something goes wrong; next to another instructor's set or session they see whose it is.
+Each instructor sees only the question sets and sessions **they** made, and only their own students' answers.
+
+The super admin's **Questions** tab is their own work too — a colleague's sets are read from **Instructors**, by clicking their name. Their **Sessions** tab is everybody's: they are the person asked what happened in a test they didn't set, and a session made before instructors had their own accounts has no owner at all, so a personal list would hide it entirely. Each row says whose it is, and an unowned one says *no owner yet*.
 
 This is enforced by the database, not just hidden in the page: a question set carries the `ownerUid` of whoever made it, and the rules only hand over a document to its owner or the super admin.
 
