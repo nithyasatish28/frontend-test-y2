@@ -170,9 +170,9 @@ export function mount(view, ctx, sid, isLiveTab = false) {
     a.querySelector("[data-del]")?.addEventListener("click", e => confirmClick(e.currentTarget, async () => {
       try {
         if (active) await store.setSettings({ activeSessionId: null }, ctx.user.uid);
-        await store.deleteSession(sid); toast("Session deleted"); ctx.go("#/sessions");
+        await store.deleteSession(sid); toast("Moved to Deleted. You can put it back."); ctx.go("#/sessions");
       } catch (ex) { note("Couldn’t delete: " + ex.message); }
-    }, "Click again: deletes all its results"));
+    }, "Click again: it moves to Deleted, and students lose the link"));
   }
 
   /* ─────────── tiles, hardest questions ─────────── */

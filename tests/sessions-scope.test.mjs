@@ -1,9 +1,9 @@
 // What each tab shows whom.
 //
-// The Questions tab is personal — a colleague's sets are read from the Instructors tab. The
-// Sessions tab is not: the super admin runs the institution, is asked about tests they didn't
-// set, and sessions made before instructors had accounts carry no owner at all. Scoping that tab
-// to one uid made those look deleted.
+// Both tabs are personal: your own question sets, your own sessions. A colleague's are read from
+// the Instructors tab, by clicking their name. The one thing the super admin's own list must also
+// hold is the sessions made before instructors had accounts, which carry no owner at all — those
+// are theirs, and scoping the query to one uid made them look deleted.
 import { is, fakeStorage, fakeDom, tick } from "./helpers.mjs";
 fakeStorage();
 await fakeDom(`<div id="view"></div>`);
@@ -33,9 +33,9 @@ let off = sessions.mount(view, ctxFor(boss, bossUid, "super"));
 await tick(140);
 const seen = titles().join(" | ");
 is("their own session is there", seen.includes("Mine"), true);
-is("a colleague's session is there", seen.includes("Hers"), true);
+is("a colleague's session is NOT there", seen.includes("Hers"), false);
 is("and one from before accounts existed", seen.includes("From before accounts existed"), true);
-is("a colleague's is marked as theirs", seen.includes("Radhika Menon") || seen.includes("another instructor"), true);
+is("so nothing needs an owner's name on it", seen.includes("another instructor"), false);
 is("an unowned one says so, so it can be claimed", seen.includes("no owner yet"), true);
 off();
 

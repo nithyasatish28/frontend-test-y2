@@ -61,12 +61,12 @@ export async function create(role) {
 
   // The same limits the Firestore rules apply: a session's link works until 10 minutes after it ends.
   const isAdmin = () => !!(user && db.docs["admins/" + user.uid]);
-  const linkOpen = s => { const now = Date.now(); return s.status === "waiting" || (s.status === "running" && now < s.startAt + (s.minutes + 10) * 60000) || (s.status === "ended" && now < s.endAt + 10 * 60000); };
+  const linkOpen = s => { const now = Date.now(); return !s.deletedAt && s.status === "waiting" || (s.status === "running" && now < s.startAt + (s.minutes + 10) * 60000) || (s.status === "ended" && now < s.endAt + 10 * 60000); };
   // The same limits the Firestore rules apply to students' saves.
   const canSave = (sid, uid) => {
     const s = db.docs["sessions/" + sid], a = db.docs[`sessions/${sid}/attempts/${uid}`], now = Date.now();
     if (a && a.status === "submitted") return false;
-    if (!s) return false;
+    if (!s || s.deletedAt) return false;
     return s.status === "waiting" || (s.status === "running" && now < s.startAt + (s.minutes + 3) * 60000) || (s.status === "ended" && now < s.endAt + 3 * 60000);
   };
 
@@ -173,7 +173,9 @@ export async function create(role) {
       return id;
     }),
     updateSession: (id, patch) => write(() => set("sessions/" + id, patch, true)),
-    deleteSession: id => write(() => { for (const k of Object.keys(db.docs)) if (k.startsWith(`sessions/${id}/`)) del(k); del("sessions/" + id); }),
+    deleteSession: id => write(() => set("sessions/" + id, { ...get("sessions/" + id), deletedAt: Date.now() })),
+    restoreSession: id => write(() => { const s = { ...get("sessions/" + id) }; delete s.deletedAt; set("sessions/" + id, s); }),
+    destroySession: id => write(() => { for (const k of Object.keys(db.docs)) if (k.startsWith(`sessions/${id}/`)) del(k); del("sessions/" + id); }),
     async saveSecret(sid, data) { return write(() => set(`sessions/${sid}/secret/keys`, data)); },
     async getSecret(sid) { load(); return clone(get(`sessions/${sid}/secret/keys`)); },
     watchSession: (id, cb) => watch(() => { const s = get("sessions/" + id); return s && !isAdmin() && !linkOpen(s) ? { __closed: true } : s; }, v => (v && v.__closed ? cb(null, fail("Firebase said no (permission denied).")) : cb(v))),

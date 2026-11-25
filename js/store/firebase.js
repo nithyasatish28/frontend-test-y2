@@ -214,7 +214,13 @@ export async function create(role) {
       await F.updateDoc(d("sessions", id), patch);
       if (patch.startAt && !(typeof patch.startAt === "number")) await learnOffset(d("sessions", id), "startAt", t0);
     }),
-    deleteSession: wrap(async id => {
+    // Deleting puts a session in the bin: the students' answers, the questions and the results
+    // all stay exactly where they are, and restoring is one field again. Firestore has no undo of
+    // its own, so a real delete here would be final.
+    deleteSession: wrap(id => F.updateDoc(d("sessions", id), { deletedAt: F.serverTimestamp() })),
+    restoreSession: wrap(id => F.updateDoc(d("sessions", id), { deletedAt: F.deleteField() })),
+    // Emptying the bin. This is the one that cannot be undone.
+    destroySession: wrap(async id => {
       const snap = await F.getDocs(c("sessions", id, "attempts"));
       for (let i = 0; i < snap.docs.length; i += 400) {
         const b = F.writeBatch(db);

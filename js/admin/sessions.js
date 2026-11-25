@@ -1,5 +1,5 @@
 // Every session, newest first, and the "New session" dialog.
-import { esc, fmtPts, dateTime, uid as randomId, toast } from "../lib/util.js";
+import { esc, fmtPts, dateTime, uid as randomId, confirmClick, toast } from "../lib/util.js";
 import { publishSet, sessionSecret } from "../lib/grade.js";
 import { dialog } from "./dialog.js";
 import { importOld } from "./import-old.js";
@@ -19,15 +19,53 @@ export function mount(view, ctx, owner) {
   view.innerHTML = `
     <div class="page-head"><h1>Sessions</h1><button class="btn ghost" data-import type="button">Import old results</button><button class="btn" data-new type="button">New session</button></div>
     <p class="sub" style="margin:-6px 0 0">A session is one sitting of a test. Each one keeps its own results, so you can come back to old ones any time.</p>
-    <div class="card"><div class="tablewrap"><table class="grid" data-table></table></div></div>`;
+    <div class="card"><div class="tablewrap"><table class="grid" data-table></table></div></div>
+    <div data-bin></div>`;
   view.querySelector("[data-new]").addEventListener("click", () => newSession(ctx));
   view.querySelector("[data-import]").addEventListener("click", () => importOld(ctx));
   let list = [];
+  const live = () => list.filter(s => !s.deletedAt);
+  const binned = () => list.filter(s => s.deletedAt);
+  let binOpen = false;
+
+  // Deleted sessions, kept whole. Restoring is one field, so nothing here is a copy of anything.
+  const drawBin = () => {
+    const box = view.querySelector("[data-bin]"), gone = binned();
+    if (!gone.length) { box.innerHTML = ""; return; }
+    box.innerHTML = `
+      <div class="card">
+        <div class="page-head" style="margin:0"><h2 style="margin:0">Deleted</h2>
+          <button class="btn ghost" data-toggle type="button">${binOpen ? "Hide" : `Show ${gone.length}`}</button></div>
+        ${binOpen ? `<p class="sub" style="margin:6px 0 0">Deleting only puts a session here: its questions, its students and their answers are all still whole.
+          A session in here is closed to students straight away, whatever time was left on it.</p>
+          <div class="tablewrap"><table class="grid" data-bintable>
+          <thead><tr><th>Date</th><th>Title</th><th>Question set</th><th class="n">Students</th><th></th></tr></thead><tbody>${
+            gone.map(s => `<tr><td>${s.createdAt ? dateTime(s.createdAt) : "–"}</td><td class="name">${esc(s.title || "Untitled")}</td>
+              <td>${esc(s.setTitle || "")}</td><td class="n">${(s.stats || {}).joined ?? "–"}</td>
+              <td class="right"><button class="btn ghost small" data-put="${esc(s.id)}" type="button">Put it back</button>
+                <button class="btn ghost small danger" data-burn="${esc(s.id)}" type="button">Delete for good</button></td></tr>`).join("")}
+          </tbody></table></div>` : ""}
+      </div>`;
+    box.querySelector("[data-toggle]").addEventListener("click", () => { binOpen = !binOpen; drawBin(); });
+    box.querySelectorAll("[data-put]").forEach(b => b.addEventListener("click", async () => {
+      b.disabled = true;
+      try { await store.restoreSession(b.dataset.put); toast("Back in your list"); }
+      catch (ex) { toast(ex.message, "err"); b.disabled = false; }
+    }));
+    box.querySelectorAll("[data-burn]").forEach(b => b.addEventListener("click", e => confirmClick(e.currentTarget, async () => {
+      b.disabled = true;
+      try { await store.destroySession(b.dataset.burn); toast("Gone for good"); }
+      catch (ex) { toast(ex.message, "err"); b.disabled = false; }
+    }, "Click again: this one cannot be undone")));
+  };
+
   const draw = () => {
+    drawBin();
     const t = view.querySelector("[data-table]");
-    if (!list.length) { t.innerHTML = `<tr><td class="empty">No sessions yet. Press <b>New session</b> to make the first one.</td></tr>`; return; }
+    const rows = live();
+    if (!rows.length) { t.innerHTML = `<tr><td class="empty">No sessions yet. Press <b>New session</b> to make the first one.</td></tr>`; return; }
     t.innerHTML = `<thead><tr><th>Date</th><th>Title</th><th>Question set</th><th>Status</th><th class="n">Students</th><th class="n">Submitted</th><th class="n">Average</th><th class="n">Top</th></tr></thead><tbody>` +
-      list.map(s => {
+      rows.map(s => {
         const st = s.stats || {};
         return `<tr class="click" data-id="${esc(s.id)}" tabindex="0"><td>${s.createdAt ? dateTime(s.createdAt) : "–"}</td><td class="name">${esc(s.title || "Untitled")}${
             ctx.role !== "super" || s.ownerUid === ctx.user.uid ? ""
@@ -45,8 +83,13 @@ export function mount(view, ctx, owner) {
   // happened in a test they didn't set, and a session made before instructors had their own
   // accounts carries no owner at all — scoping this to one uid hides those completely.
   // Question sets stay personal: those are read from the Instructors tab, which is what was asked for.
+  // Your own work. The super admin reads the whole collection because Firestore cannot ask for
+  // "sessions with no owner" — those were made before instructors had accounts, so they are the
+  // super admin's own — and then keeps their own and the ownerless ones. Another instructor's
+  // sessions are read from the Instructors tab, by clicking their name.
   const whose = owner || (ctx.role === "super" ? null : ctx.user.uid);
-  const offSessions = store.watchSessions((l, err) => { if (err) toast(err.message, "err"); list = l; draw(); }, whose);
+  const keep = l => (owner || ctx.role !== "super") ? l : l.filter(s => !s.ownerUid || s.ownerUid === ctx.user.uid);
+  const offSessions = store.watchSessions((l, err) => { if (err) toast(err.message, "err"); list = keep(l || []); draw(); }, whose);
   const offSettings = ctx.onSettings(draw);
   return () => { offSessions(); offSettings(); };
 }

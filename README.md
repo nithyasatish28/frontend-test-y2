@@ -100,7 +100,9 @@ Everyone else is an ordinary instructor: they get **Live**, **Sessions** and **Q
 
 Each instructor sees only the question sets and sessions **they** made, and only their own students' answers.
 
-The super admin's **Questions** tab is their own work too — a colleague's sets are read from **Instructors**, by clicking their name. Their **Sessions** tab is everybody's: they are the person asked what happened in a test they didn't set, and a session made before instructors had their own accounts has no owner at all, so a personal list would hide it entirely. Each row says whose it is, and an unowned one says *no owner yet*.
+This holds for the super admin too: both their tabs show their own work, and a colleague's is read from **Instructors**, by clicking their name. The one addition is that their Sessions list also holds anything made before instructors had their own accounts, which carries no owner at all and is theirs in practice; those rows say *no owner yet*.
+
+**Deleting a session puts it in Deleted, at the bottom of the Sessions tab.** Its questions, its students and their answers all stay whole, and *Put it back* restores it as it was. A session in there is closed to students immediately, however much time was left on its link — that part is in the database rules, not just the page. *Delete for good* empties it, and that one is final: Firestore has no undo of its own.
 
 This is enforced by the database, not just hidden in the page: a question set carries the `ownerUid` of whoever made it, and the rules only hand over a document to its owner or the super admin.
 

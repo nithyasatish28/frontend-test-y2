@@ -18,11 +18,16 @@ service cloud.firestore {
         || (s.status == 'running' && request.time < s.startAt + duration.value(s.minutes + 10, 'm'))
         || (s.status == 'ended' && request.time < s.endAt + duration.value(6, 'h'));
     }
+    // A session in the bin is closed to students at once, however much of its window is left.
+    // The instructor can still see it and put it back; nobody else can reach it at all.
+    function binned(s) { return s.get('deletedAt', null) != null; }
+
     // Students can save while the test is open, plus 3 minutes of grace.
     function canSave(s) {
-      return s.status == 'waiting'
-        || (s.status == 'running' && request.time < s.startAt + duration.value(s.minutes + 3, 'm'))
-        || (s.status == 'ended' && request.time < s.endAt + duration.value(3, 'm'));
+      return !binned(s)
+        && (s.status == 'waiting'
+            || (s.status == 'running' && request.time < s.startAt + duration.value(s.minutes + 3, 'm'))
+            || (s.status == 'ended' && request.time < s.endAt + duration.value(3, 'm')));
     }
     function goodName(d) { return d.name is string && d.name.size() > 0 && d.name.size() <= 60; }
 
@@ -114,7 +119,8 @@ service cloud.firestore {
       allow list: if isSuper() || (isAdmin() && mine(resource.data));
       allow create: if isAdmin() && request.resource.data.ownerUid == request.auth.uid;
       allow update: if (isSuper() || (isAdmin() && mine(resource.data)))
-        && request.resource.data.ownerUid == resource.data.get('ownerUid', request.auth.uid);
+        && (!('ownerUid' in resource.data)
+            || request.resource.data.get('ownerUid', '') == resource.data.ownerUid);
       allow delete: if isSuper() || (isAdmin() && mine(resource.data));
     }
 
@@ -127,7 +133,7 @@ service cloud.firestore {
     // A session holds a copy of the questions with the answers hashed.
     match /sessions/{sid} {
       // Students still open any session whose link is live — that is what the link is for.
-      allow get: if isSuper() || (isAdmin() && mine(resource.data)) || (signedIn() && linkOpen(resource.data));
+      allow get: if isSuper() || (isAdmin() && mine(resource.data)) || (signedIn() && !binned(resource.data) && linkOpen(resource.data));
       allow list: if isSuper() || (isAdmin() && mine(resource.data));
       allow create: if isAdmin() && request.resource.data.ownerUid == request.auth.uid;
       allow update: if (isSuper() || (isAdmin() && mine(resource.data)))
